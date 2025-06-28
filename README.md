@@ -1,39 +1,29 @@
-# rollup-plugin-code-transformer
+# @apm-js-collab/code-transformer-bundler-plugins
 
-A Rollup plugin that uses
+A universal plugin that uses
 [`@apm-js-collab/code-transformer`](https://github.com/apm-js-collab/orchestrion-js)
 to instrument JavaScript code at build time for application performance
 monitoring and tracing.
 
-## Features
-
-- 🔧 **Build-time instrumentation**: Transform your code during the build
-  process
-- 🎯 **Selective targeting**: Configure which modules and functions to
-  instrument
-- 📊 **APM Integration**: Seamlessly integrate with APM solutions using
-  diagnostic channels
-- 🚀 **Zero runtime overhead**: All transformations happen at build time
-- 📦 **Universal support**: Works with ES modules and CommonJS
-- 🔍 **TypeScript support**: Full TypeScript definitions included
+**Compatible with Rollup, Webpack, Vite, esbuild, and more!**
 
 ## Installation
 
 ```bash
-npm install rollup-plugin-code-transformer
+npm install @apm-js-collab/code-transformer-bundler-plugins
 # or
-yarn add rollup-plugin-code-transformer
+yarn add @apm-js-collab/code-transformer-bundler-plugins
 # or
-pnpm add rollup-plugin-code-transformer
+pnpm add @apm-js-collab/code-transformer-bundler-plugins
 ```
 
 ## Usage
 
-### Basic Configuration
+### Rollup
 
 ```javascript
 // rollup.config.js
-import codeTransformerPlugin from "rollup-plugin-code-transformer";
+import codeTransformer from "@apm-js-collab/code-transformer-bundler-plugins/rollup";
 
 export default {
   input: "src/index.js",
@@ -42,7 +32,7 @@ export default {
     format: "esm",
   },
   plugins: [
-    codeTransformerPlugin({
+    codeTransformer({
       instrumentations: [
         {
           channelName: "fetch:request",
@@ -63,68 +53,60 @@ export default {
 };
 ```
 
-### Advanced Configuration
+### Webpack
 
 ```javascript
-// rollup.config.js
-import codeTransformerPlugin from "rollup-plugin-code-transformer";
+// webpack.config.js
+const codeTransformer = require(
+  "@apm-js-collab/code-transformer-bundler-plugins/webpack",
+);
 
-export default {
-  input: "src/index.js",
-  output: {
-    file: "dist/bundle.js",
-    format: "esm",
-  },
+module.exports = {
+  entry: "./src/index.js",
   plugins: [
-    codeTransformerPlugin({
+    codeTransformer({
       instrumentations: [
-        // Instrument class methods
-        {
-          channelName: "database:query",
-          module: {
-            name: "mysql2",
-            versionRange: ">=3.0.0",
-            filePath: "lib/connection.js",
-          },
-          functionQuery: {
-            className: "Connection",
-            methodName: "query",
-            kind: "Async",
-          },
-        },
-        // Instrument function declarations
-        {
-          channelName: "http:request",
-          module: {
-            name: "http-client",
-            versionRange: ">=1.0.0",
-            filePath: "index.js",
-          },
-          functionQuery: {
-            functionName: "request",
-            kind: "Async",
-          },
-        },
-        // Instrument object methods
-        {
-          channelName: "cache:operation",
-          module: {
-            name: "redis-client",
-            versionRange: ">=2.0.0",
-            filePath: "client.js",
-          },
-          functionQuery: {
-            objectMethodName: "get",
-            kind: "Async",
-          },
-        },
+        // ... your instrumentations
       ],
-      // Optional: Include polyfill for older Node.js versions
-      dcModule: "./polyfill/diagnostics-channel.js",
-      // File filtering
-      include: ["src/**/*.js", "src/**/*.ts"],
-      exclude: ["**/*.test.js", "node_modules/**"],
     }),
   ],
 };
+```
+
+### Vite
+
+```javascript
+// vite.config.js
+import { defineConfig } from "vite";
+import codeTransformer from "@apm-js-collab/code-transformer-bundler-plugins/vite";
+
+export default defineConfig({
+  plugins: [
+    codeTransformer({
+      instrumentations: [
+        // ... your instrumentations
+      ],
+    }),
+  ],
+});
+```
+
+### esbuild
+
+```javascript
+// build.js
+import { build } from "esbuild";
+import codeTransformer from "@apm-js-collab/code-transformer-bundler-plugins/esbuild";
+
+build({
+  entryPoints: ["src/index.js"],
+  bundle: true,
+  plugins: [
+    codeTransformer({
+      instrumentations: [
+        // ... your instrumentations
+      ],
+    }),
+  ],
+});
 ```

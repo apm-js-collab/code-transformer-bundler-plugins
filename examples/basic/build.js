@@ -1,16 +1,17 @@
 import { rollup } from 'rollup';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
-import codeTransformerPlugin from '../../dist/index.mjs';
+import { join } from 'path';
+import codeTransformer from '../../dist/rollup.mjs';
 
 async function build() {
   try {
     console.log('Building example with code transformer plugin...');
     
     const bundle = await rollup({
-      input: 'src/index.js',
+      input: join(import.meta.dirname, 'src', 'index.js'),
       plugins: [
         nodeResolve(), // Add node resolution plugin
-        codeTransformerPlugin({
+        codeTransformer({
           instrumentations: [
             // Instrument HttpClient.fetch method
             {
@@ -54,20 +55,16 @@ async function build() {
               }
             }
           ],
-          include: ['node_modules/**/*.js'],
-          exclude: []
         })
       ],
       external: [] // Don't treat any modules as external
     });
 
     await bundle.write({
-      file: 'dist/bundle.js',
+      file: join(import.meta.dirname, 'dist', 'bundle.js'),
       format: 'esm'
     });
 
-    console.log('Build completed! Check dist/bundle.js');
-    
   } catch (error) {
     console.error('Build failed:', error);
     process.exit(1);

@@ -6,15 +6,14 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
-    // "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "moduleResolution": "node",
-    // "allowSyntheticDefaultImports": true,
-    // "resolveJsonModule": true,
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "types": ["node"]
   },
   "include": [
     "src/**/*"

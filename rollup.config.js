@@ -3,7 +3,7 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 
 const external = [
-    'rollup',
+    'unplugin',
     '@rollup/pluginutils',
     '@apm-js-collab/code-transformer',
     'module-details-from-path',
@@ -11,39 +11,52 @@ const external = [
     'fs'
 ]
 
-export default [
-  // ESM build
-  {
-    input: 'src/index.ts',
-    external,
-    output: {
-      file: 'dist/index.mjs',
-      format: 'es',
-      sourcemap: true
-    },
-    plugins: [
-      nodeResolve(),
-      typescript({
-        tsconfig: './tsconfig.json',
-      })
-    ]
-  },
-  // CommonJS build
-  {
-    input: 'src/index.ts',
-    external,
-    output: {
-      file: 'dist/index.js',
-      format: 'cjs',
-      sourcemap: true,
-      exports: 'auto'
-    },
-    plugins: [
-      nodeResolve(),
-      commonjs(),
-      typescript({
-        tsconfig: './tsconfig.json',
-      })
-    ]
-  }
+const entries = [
+    'rollup',
+    'webpack', 
+    'vite',
+    'esbuild'
 ];
+
+const configs = [];
+
+// Generate ESM and CJS builds for each entry point
+for (const entry of entries) {
+    // ESM build
+    configs.push({
+        input: `src/${entry}.ts`,
+        external,
+        output: {
+            file: `dist/${entry}.mjs`,
+            format: 'es',
+            sourcemap: true
+        },
+        plugins: [
+            nodeResolve(),
+            typescript({
+                tsconfig: './tsconfig.json',
+            })
+        ]
+    });
+    
+    // CommonJS build
+    configs.push({
+        input: `src/${entry}.ts`,
+        external,
+        output: {
+            file: `dist/${entry}.js`,
+            format: 'cjs',
+            sourcemap: true,
+            exports: 'auto'
+        },
+        plugins: [
+            nodeResolve(),
+            commonjs(),
+            typescript({
+                tsconfig: './tsconfig.json',
+            })
+        ]
+    });
+}
+
+export default configs;
