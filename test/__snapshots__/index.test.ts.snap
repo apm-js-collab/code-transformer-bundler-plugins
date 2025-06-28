@@ -1,0 +1,198 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`rollup-plugin-code-transformer integration tests > should handle .mjs files as ES modules > mjs-module-output 1`] = `
+"import { tracingChannel } from 'diagnostics_channel';
+
+const tr_ch_apm$test_mjs = tracingChannel("orchestrion:test-module:test:mjs");
+async function testFunction() {
+    const traced = async ()=>{
+        return Promise.resolve('mjs module');
+    };
+    if (!tr_ch_apm$test_mjs.hasSubscribers) return traced();
+    return tr_ch_apm$test_mjs.tracePromise(traced, {
+        arguments,
+        self: this
+    });
+}
+
+export { testFunction };
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should handle CommonJS modules correctly > commonjs-module-output 1`] = `
+"'use strict';
+
+const { tracingChannel: tr_ch_apm_tracingChannel } = require("diagnostics_channel");
+const tr_ch_apm$test_commonjs = tr_ch_apm_tracingChannel("orchestrion:test-module:test:commonjs");
+const { promisify } = require('util');
+function testFunction() {
+    const traced = async ()=>{
+        return Promise.resolve(42);
+    };
+    if (!tr_ch_apm$test_commonjs.hasSubscribers) return traced();
+    return tr_ch_apm$test_commonjs.tracePromise(traced, {
+        arguments,
+        self: this
+    });
+}
+module.exports = {
+    testFunction
+};
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should handle ES modules with explicit import/export > esmodule-explicit-output 1`] = `
+"import { tracingChannel } from 'diagnostics_channel';
+import 'path';
+
+const tr_ch_apm$test_esmodule = tracingChannel("orchestrion:test-module:test:esmodule");
+async function testFunction() {
+    const traced = async ()=>{
+        return Promise.resolve(42);
+    };
+    if (!tr_ch_apm$test_esmodule.hasSubscribers) return traced();
+    return tr_ch_apm$test_esmodule.tracePromise(traced, {
+        arguments,
+        self: this
+    });
+}
+var esmodule = {
+    testFunction
+};
+
+export { esmodule as default, testFunction };
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should handle complex semver ranges correctly > semver-range-match-output 1`] = `
+"import { tracingChannel } from 'diagnostics_channel';
+
+const tr_ch_apm$test_complex = tracingChannel("orchestrion:test-module:test:complex");
+function complexFunction() {
+    const traced = async ()=>{
+        return Promise.resolve('complex');
+    };
+    if (!tr_ch_apm$test_complex.hasSubscribers) return traced();
+    return tr_ch_apm$test_complex.tracePromise(traced, {
+        arguments,
+        self: this
+    });
+}
+
+export { complexFunction };
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should handle mixed module syntax correctly > mixed-syntax-output 1`] = `
+"import { tracingChannel } from 'diagnostics_channel';
+
+const tr_ch_apm$test_mixed = tracingChannel("orchestrion:test-module:test:mixed");
+require('fs');
+async function testFunction() {
+    const traced = async ()=>{
+        return Promise.resolve(42);
+    };
+    if (!tr_ch_apm$test_mixed.hasSubscribers) return traced();
+    return tr_ch_apm$test_mixed.tracePromise(traced, {
+        arguments,
+        self: this
+    });
+}
+module.exports.legacy = testFunction;
+
+export { testFunction };
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should handle multiple instrumentations correctly > multiple-instrumentations-output 1`] = `
+"import { tracingChannel } from 'diagnostics_channel';
+
+const tr_ch_apm$http_post = tracingChannel("orchestrion:test-module:http:post");
+const tr_ch_apm$http_fetch = tracingChannel("orchestrion:test-module:http:fetch");
+class HttpClient {
+    async fetch(url) {
+        const traced = async ()=>{
+            return {
+                status: 200,
+                data: 'test'
+            };
+        };
+        if (!tr_ch_apm$http_fetch.hasSubscribers) return traced();
+        return tr_ch_apm$http_fetch.tracePromise(traced, {
+            arguments,
+            self: this
+        });
+    }
+    async post(url, data) {
+        const traced = async ()=>{
+            return {
+                status: 201,
+                data: 'created'
+            };
+        };
+        if (!tr_ch_apm$http_post.hasSubscribers) return traced();
+        return tr_ch_apm$http_post.tracePromise(traced, {
+            arguments,
+            self: this
+        });
+    }
+}
+
+export { HttpClient };
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should not transform code when module name does not match > module-name-mismatch-output 1`] = `
+"function testFunction() {
+    return Promise.resolve(42);
+}
+
+export { testFunction };
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should not transform code when version does not match > version-mismatch-output 1`] = `
+"function testFunction() {
+    return Promise.resolve(42);
+}
+
+export { testFunction };
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should skip excluded files during rollup build > excluded-file-output 1`] = `
+"function testFunction() {
+    return Promise.resolve(42);
+}
+
+export { testFunction };
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should skip files outside of node_modules > outside-node-modules-output 1`] = `
+"function testFunction() {
+    return Promise.resolve(42);
+}
+
+export { testFunction };
+"
+`;
+
+exports[`rollup-plugin-code-transformer integration tests > should transform code in matching module with correct version > transformed-function-output 1`] = `
+"import { tracingChannel } from 'diagnostics_channel';
+
+const tr_ch_apm$test_function = tracingChannel("orchestrion:test-module:test:function");
+function testFunction() {
+    const traced = async ()=>{
+        return Promise.resolve(42);
+    };
+    if (!tr_ch_apm$test_function.hasSubscribers) return traced();
+    return tr_ch_apm$test_function.tracePromise(traced, {
+        arguments,
+        self: this
+    });
+}
+
+export { testFunction };
+"
+`;

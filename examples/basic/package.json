@@ -1,0 +1,10 @@
+{
+    "name": "code-transformer-example",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "node build.js",
+        "start": "node dist/bundle.js"
+    },
+    "version": "1.0.0"
+}
