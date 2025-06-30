@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import codeTransformerPlugin from '../src/webpack.js';
+import codeTransformerPlugin from '../dist/esm/webpack.js';
 import webpack from 'webpack';
 import { join } from 'path';
 import { writeFileSync, readFileSync } from 'fs';

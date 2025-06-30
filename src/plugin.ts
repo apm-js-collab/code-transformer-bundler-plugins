@@ -1,13 +1,12 @@
 import { createUnplugin } from 'unplugin';
 import { create, type InstrumentationConfig } from '@apm-js-collab/code-transformer';
-import { extname, basename, join } from 'path';
+import { extname, join } from 'path';
 import { readFileSync } from 'fs';
 import moduleDetailsFromPath from 'module-details-from-path';
 
 export interface CodeTransformerPluginOptions {
     /** Array of instrumentation configurations */
     instrumentations: InstrumentationConfig[];
-
     /** Optional path to a polyfill module for diagnostics_channel */
     dcModule?: string;
 }
@@ -39,7 +38,7 @@ const unplugin = createUnplugin<CodeTransformerPluginOptions>((options) => {
     } = options;
 
     // Create the code transformer instrumentor
-    const instrumentor = create(instrumentations, dcModule);
+    const instrumentationMatcher = create(instrumentations, dcModule);
 
     return {
         name: 'code-transformer',
@@ -53,37 +52,37 @@ const unplugin = createUnplugin<CodeTransformerPluginOptions>((options) => {
                 isModule = code.includes('export ') || code.includes('import ');
             }
 
+            // Try to get module details from the file path
+            const moduleDetails = moduleDetailsFromPath(id);
+
+            // If no module details found, the file is not part of a module
+            if (!moduleDetails) {
+                return null;
+            }
+
+            // Use module details for accurate module information
+            const moduleName = moduleDetails.name;
+            const moduleVersion = getModuleVersion(moduleDetails.basedir);
+
+            // If no version found
+            if (!moduleVersion) {
+                console.warn(`No 'package.json' version found for module ${moduleName} at ${moduleDetails.basedir}. Skipping transformation.`);
+                return null;
+            }
+
+            // Try to get a transformer for this file
+            const transformer = instrumentationMatcher.getTransformer(
+                moduleName,
+                moduleVersion,
+                moduleDetails.path,
+            );
+
+            if (!transformer) {
+                // No instrumentations match this file
+                return null;
+            }
+
             try {
-                // Try to get module details from the file path
-                const moduleDetails = moduleDetailsFromPath(id);
-
-                // If no module details found, the file is not part of a module
-                if (!moduleDetails) {
-                    return null;
-                }
-
-                // Use module details for accurate module information
-                const moduleName = moduleDetails.name;
-                const moduleVersion = getModuleVersion(moduleDetails.basedir);
-
-                // If no version found
-                if (!moduleVersion) {
-                    console.warn(`No 'package.json' version found for module ${moduleName} at ${moduleDetails.basedir}. Skipping transformation.`);
-                    return null;
-                }
-
-                // Try to get a transformer for this file
-                const transformer = instrumentor.getTransformer(
-                    moduleName,
-                    moduleVersion,
-                    moduleDetails.path,
-                );
-
-                if (!transformer) {
-                    // No instrumentations match this file
-                    return null;
-                }
-
                 // Transform the code
                 const transformedCode = transformer.transform(code, isModule);
 
@@ -96,6 +95,8 @@ const unplugin = createUnplugin<CodeTransformerPluginOptions>((options) => {
                 // If transformation fails, warn and return original code
                 console.warn(`Code transformation failed for ${id}: ${error}`);
                 return null;
+            } finally {
+                transformer.free();
             }
         }
     };
