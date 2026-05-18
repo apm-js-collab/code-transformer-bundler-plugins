@@ -68,7 +68,7 @@
         "access": "public"
     },
     "dependencies": {
-        "@apm-js-collab/code-transformer": "^0.3.0",
+        "@apm-js-collab/code-transformer": "^0.13.0",
         "module-details-from-path": "^1.0.4",
         "unplugin": "^2.3.5"
     },
