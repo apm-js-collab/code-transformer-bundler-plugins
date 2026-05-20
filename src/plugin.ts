@@ -1,5 +1,5 @@
 import { createUnplugin } from 'unplugin';
-import { create, type InstrumentationConfig } from '@apm-js-collab/code-transformer';
+import { create, type InstrumentationConfig, type ModuleType } from '@apm-js-collab/code-transformer';
 import { extname, join } from 'path';
 import { readFileSync } from 'fs';
 import moduleDetailsFromPath from 'module-details-from-path';
@@ -43,13 +43,16 @@ const unplugin = createUnplugin<CodeTransformerPluginOptions>((options) => {
     return {
         name: 'code-transformer',
         transform(code: string, id: string) {
-            // Determine if this is an ES module using multiple methods for accurate detection
+            // Determine the module type using multiple methods for accurate detection
             const ext = extname(id);
-            let isModule = ext === '.mjs' || ext === '.ts' || ext === '.tsx';
+            let moduleType: ModuleType =
+                ext === '.mjs' || ext === '.ts' || ext === '.tsx' ? 'esm' : 'unknown';
 
             // For .js files, use content analysis for module detection
             if (ext === '.js') {
-                isModule = code.includes('export ') || code.includes('import ');
+                moduleType = code.includes('export ') || code.includes('import ') ? 'esm' : 'cjs';
+            } else if (ext === '.cjs') {
+                moduleType = 'cjs';
             }
 
             // Try to get module details from the file path
@@ -84,11 +87,11 @@ const unplugin = createUnplugin<CodeTransformerPluginOptions>((options) => {
 
             try {
                 // Transform the code
-                const transformedCode = transformer.transform(code, isModule);
+                const result = transformer.transform(code, moduleType);
 
                 return {
-                    code: transformedCode,
-                    // map: sourceMap // TODO: Implement source map support
+                    code: result.code,
+                    map: result.map,
                 };
 
             } catch (error) {
