@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.2.0...code-transformer-bundler-plugins-v0.2.1) (2026-05-21)
+
+
+### Bug Fixes
+
+* `repository.url` should be set for publish provenance ([#7](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/7)) ([0fd9022](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/0fd9022ea7a0deef3b858cd047dac016438d1271))
+
 ## [0.2.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.1.0...code-transformer-bundler-plugins-v0.2.0) (2026-05-21)
 
 
