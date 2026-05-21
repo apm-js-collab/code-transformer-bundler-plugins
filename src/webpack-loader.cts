@@ -1,4 +1,4 @@
-import { create, type InstrumentationConfig } from '@apm-js-collab/code-transformer';
+import { create, ModuleType, type InstrumentationConfig } from '@apm-js-collab/code-transformer';
 import { join, extname } from 'path';
 import { readFileSync } from 'fs';
 import * as moduleDetailsFromPathImport from 'module-details-from-path';
@@ -66,11 +66,14 @@ function codeTransformerLoader(
 
     // Determine if this is an ES module using multiple methods for accurate detection
     const ext = extname(resourcePath);
-    let isModule = ext === '.mjs' || ext === '.ts' || ext === '.tsx';
+    let moduleType: ModuleType =
+        ext === '.mjs' || ext === '.ts' || ext === '.tsx' ? 'esm' : 'unknown';
 
     // For .js files, use content analysis for module detection
     if (ext === '.js') {
-        isModule = code.includes('export ') || code.includes('import ');
+        moduleType = code.includes('export ') || code.includes('import ') ? 'esm' : 'cjs';
+    } else if (ext === '.cjs') {
+        moduleType = 'cjs';
     }
 
     // Try to get module details from the file path
@@ -105,9 +108,9 @@ function codeTransformerLoader(
 
     try {
         // Transform the code
-        const result = transformer.transform(code, isModule);
+        const result = transformer.transform(code, moduleType, inputSourceMap);
 
-        callback(null, result, undefined);
+        callback(null, result.code, result.map);
     } catch (error) {
         console.warn(`[code-transformer-loader] Error transforming ${resourcePath}:`, error);
         callback(null, code, inputSourceMap);
