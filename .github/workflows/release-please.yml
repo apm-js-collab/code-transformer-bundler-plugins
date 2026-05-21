@@ -35,4 +35,5 @@ jobs:
           node-version: lts/*
           registry-url: "https://registry.npmjs.org"
       - run: npm install -g npm@latest
+      - run: npm run build
       - run: npm publish --access public
