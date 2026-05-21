@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.2.2...code-transformer-bundler-plugins-v0.2.3) (2026-05-21)
+
+
+### Bug Fixes
+
+* Another build failure ([#11](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/11)) ([e81873b](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/e81873bae06eac0fcbe6f170add3391361e3b41f))
+
 ## [0.2.2](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.2.1...code-transformer-bundler-plugins-v0.2.2) (2026-05-21)
 
 
