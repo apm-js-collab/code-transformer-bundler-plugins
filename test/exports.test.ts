@@ -42,34 +42,30 @@ describe('package.json exports', () => {
         const esmEntries = ['rollup', 'webpack', 'vite', 'esbuild'];
         const cjsEntries = ['rollup', 'webpack', 'vite', 'esbuild', 'webpack-loader'];
 
-        for (const entry of esmEntries) {
-            it(`import '${pkg.name}/${entry}' (ESM) loads and exports a function`, () => {
-                const script = `
-                    import value from '${pkg.name}/${entry}';
-                    if (typeof value !== 'function') {
-                        console.error('expected function, got ' + typeof value);
-                        process.exit(2);
-                    }
-                `;
-                const { status, stderr } = runNode('module', script);
-                expect(stderr).toBe('');
-                expect(status).toBe(0);
-            });
-        }
+        it.each(esmEntries)(`import '${pkg.name}/%s' (ESM) loads and exports a function`, (entry) => {
+            const script = `
+                import value from '${pkg.name}/${entry}';
+                if (typeof value !== 'function') {
+                    console.error('expected function, got ' + typeof value);
+                    process.exit(2);
+                }
+            `;
+            const { status, stderr } = runNode('module', script);
+            expect(stderr).toBe('');
+            expect(status).toBe(0);
+        });
 
-        for (const entry of cjsEntries) {
-            it(`require '${pkg.name}/${entry}' (CJS) loads and exports a function`, () => {
-                const script = `
-                    const value = require('${pkg.name}/${entry}');
-                    if (typeof value !== 'function') {
-                        console.error('expected function, got ' + typeof value);
-                        process.exit(2);
-                    }
-                `;
-                const { status, stderr } = runNode('commonjs', script);
-                expect(stderr).toBe('');
-                expect(status).toBe(0);
-            });
-        }
+        it.each(cjsEntries)(`require '${pkg.name}/%s' (CJS) loads and exports a function`, (entry) => {
+            const script = `
+                const value = require('${pkg.name}/${entry}');
+                if (typeof value !== 'function') {
+                    console.error('expected function, got ' + typeof value);
+                    process.exit(2);
+                }
+            `;
+            const { status, stderr } = runNode('commonjs', script);
+            expect(stderr).toBe('');
+            expect(status).toBe(0);
+        });
     });
 });
