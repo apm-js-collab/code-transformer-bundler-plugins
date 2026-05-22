@@ -7,7 +7,7 @@ import {
 export default function codeTransformerRollup(
     options: CodeTransformerPluginOptions,
 ): Plugin {
-    const { transform, dispose } = createCodeTransformer(options);
+    const transform = createCodeTransformer(options);
 
     return {
         name: 'code-transformer',
@@ -15,9 +15,6 @@ export default function codeTransformerRollup(
             const result = transform(code, id);
             if (!result) return null;
             return { code: result.code, map: result.map ?? null };
-        },
-        closeBundle() {
-            dispose();
         },
     };
 }

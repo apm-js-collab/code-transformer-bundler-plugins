@@ -11,7 +11,7 @@ export default function codeTransformerEsbuild(
     return {
         name: 'code-transformer',
         setup(build) {
-            const { transform, dispose } = createCodeTransformer(options);
+            const transform = createCodeTransformer(options);
 
             build.onLoad({ filter: /\.(c|m)?js$|\.tsx?$/ }, (args) => {
                 const code = readFileSync(args.path, 'utf8');
@@ -22,10 +22,6 @@ export default function codeTransformerEsbuild(
                     contents: result.code,
                     loader: 'default',
                 };
-            });
-
-            build.onEnd(() => {
-                dispose();
             });
         },
     };

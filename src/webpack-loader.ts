@@ -39,7 +39,6 @@ function getMatcher(instrumentations: InstrumentationConfig[], dcModule?: string
     // Free old matchers to prevent memory leaks
     for (const [hash, matcher] of matcherCache.entries()) {
         if (hash !== configHash) {
-            matcher.free();
             matcherCache.delete(hash);
         }
     }
@@ -114,18 +113,8 @@ function codeTransformerLoader(
     } catch (error) {
         console.warn(`[code-transformer-loader] Error transforming ${resourcePath}:`, error);
         callback(null, code, inputSourceMap);
-    } finally {
-        transformer.free();
     }
 }
-
-// Cleanup on process exit
-process.on('exit', () => {
-    for (const matcher of matcherCache.values()) {
-        matcher.free();
-    }
-    matcherCache.clear();
-});
 
 // Namespace to attach types to the function
 namespace codeTransformerLoader {
