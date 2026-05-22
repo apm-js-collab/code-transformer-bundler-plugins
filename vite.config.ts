@@ -28,7 +28,6 @@ export default defineConfig({
             external: [
                 ...builtinModules,
                 ...builtinModules.map((m) => `node:${m}`),
-                'unplugin',
                 '@apm-js-collab/code-transformer',
                 'module-details-from-path',
             ],
