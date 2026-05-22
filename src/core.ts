@@ -56,11 +56,11 @@ function detectModuleType(id: string, code: string): ModuleType {
 export function createCodeTransformer(options: CodeTransformerPluginOptions) {
     const matcher = create(options.instrumentations, options.dcModule ?? null);
 
-    function transform(
+    return (
         code: string,
         id: string,
         inputSourceMap?: string | null,
-    ): TransformResult | null {
+    ): TransformResult | null => {
         const moduleType = detectModuleType(id, code);
         const moduleDetails = moduleDetailsFromPath(id);
         if (!moduleDetails) return null;
@@ -90,14 +90,6 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
         } catch (error) {
             console.warn(`Code transformation failed for ${id}: ${error}`);
             return null;
-        } finally {
-            transformer.free();
         }
-    }
-
-    function dispose() {
-        matcher.free();
-    }
-
-    return { transform, dispose };
+    };
 }

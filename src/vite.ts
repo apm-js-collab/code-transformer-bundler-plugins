@@ -7,7 +7,7 @@ import {
 export default function codeTransformerVite(
     options: CodeTransformerPluginOptions,
 ): Plugin {
-    const { transform, dispose } = createCodeTransformer(options);
+    const transform = createCodeTransformer(options);
 
     return {
         name: 'code-transformer',
@@ -16,9 +16,6 @@ export default function codeTransformerVite(
             const result = transform(code, id);
             if (!result) return null;
             return { code: result.code, map: result.map ?? null };
-        },
-        closeBundle() {
-            dispose();
         },
     };
 }
