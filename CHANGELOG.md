@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.2.3...code-transformer-bundler-plugins-v0.2.4) (2026-05-22)
+
+
+### Bug Fixes
+
+* build with Vite so dist filenames match package.json exports ([#13](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/13)) ([f9bbac5](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/f9bbac5c443bf7ee180ee6025163d20f54a4f218))
+
 ## [0.2.3](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.2.2...code-transformer-bundler-plugins-v0.2.3) (2026-05-21)
 
 
