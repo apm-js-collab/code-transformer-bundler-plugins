@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import codeTransformerPlugin from '../dist/esm/esbuild.js';
+import codeTransformerPlugin from '../dist/esm/esbuild.mjs';
 import { build } from 'esbuild';
 import { join } from 'path';
 import { writeFileSync, mkdirSync } from 'fs';
