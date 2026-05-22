@@ -21,49 +21,49 @@
         "url": "https://github.com/apm-js-collab/code-transformer-bundler-plugins"
     },
     "scripts": {
-        "build": "tsc && tsc --module commonjs --outDir dist/cjs",
+        "build": "vite build",
         "test": "vitest run"
     },
     "license": "MIT",
     "exports": {
         "./rollup": {
             "import": {
-                "types": "./dist/esm/rollup.d.ts",
+                "types": "./dist/esm/rollup.d.mts",
                 "default": "./dist/esm/rollup.mjs"
             },
             "require": {
-                "types": "./dist/cjs/rollup.d.ts",
-                "default": "./dist/cjs/rollup.js"
+                "types": "./dist/cjs/rollup.d.cts",
+                "default": "./dist/cjs/rollup.cjs"
             }
         },
         "./webpack": {
             "import": {
-                "types": "./dist/esm/webpack.d.ts",
+                "types": "./dist/esm/webpack.d.mts",
                 "default": "./dist/esm/webpack.mjs"
             },
             "require": {
-                "types": "./dist/cjs/webpack.d.ts",
-                "default": "./dist/cjs/webpack.js"
+                "types": "./dist/cjs/webpack.d.cts",
+                "default": "./dist/cjs/webpack.cjs"
             }
         },
         "./vite": {
             "import": {
-                "types": "./dist/esm/vite.d.ts",
+                "types": "./dist/esm/vite.d.mts",
                 "default": "./dist/esm/vite.mjs"
             },
             "require": {
-                "types": "./dist/cjs/vite.d.ts",
-                "default": "./dist/cjs/vite.js"
+                "types": "./dist/cjs/vite.d.cts",
+                "default": "./dist/cjs/vite.cjs"
             }
         },
         "./esbuild": {
             "import": {
-                "types": "./dist/esm/esbuild.d.ts",
+                "types": "./dist/esm/esbuild.d.mts",
                 "default": "./dist/esm/esbuild.mjs"
             },
             "require": {
-                "types": "./dist/cjs/esbuild.d.ts",
-                "default": "./dist/cjs/esbuild.js"
+                "types": "./dist/cjs/esbuild.d.cts",
+                "default": "./dist/cjs/esbuild.cjs"
             }
         },
         "./webpack-loader": {
@@ -88,6 +88,7 @@
         "rollup": "^4.9.1",
         "tslib": "^2.6.2",
         "typescript": "^5.3.3",
+        "unplugin-dts": "^1.0.1",
         "vite": "^7.0.0",
         "vitest": "^3.2.4",
         "webpack": "^5.99.9"

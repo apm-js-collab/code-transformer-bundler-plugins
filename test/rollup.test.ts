@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import codeTransformerPlugin from '../dist/esm/rollup.js';
+import codeTransformerPlugin from '../dist/esm/rollup.mjs';
 import { rollup } from 'rollup';
 import { join } from 'path';
 import { writeFileSync, mkdirSync } from 'fs';

@@ -138,5 +138,4 @@ namespace codeTransformerLoader {
     }
 }
 
-// Use export = for proper CommonJS module.exports
-export = codeTransformerLoader;
+export default codeTransformerLoader;
