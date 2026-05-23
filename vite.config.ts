@@ -8,6 +8,7 @@ const entries = {
     webpack: 'src/webpack.ts',
     vite: 'src/vite.ts',
     esbuild: 'src/esbuild.ts',
+    bun: 'src/bun.ts',
     'webpack-loader': 'src/webpack-loader.ts',
 };
 

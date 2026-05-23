@@ -5,7 +5,7 @@ A universal plugin that uses
 to instrument JavaScript code at build time for application performance
 monitoring and tracing.
 
-**Compatible with Rollup, Webpack, Vite, esbuild, and more!**
+**Compatible with Rollup, Webpack, Vite, esbuild, Bun, and more!**
 
 ## Installation
 
@@ -109,4 +109,40 @@ build({
     }),
   ],
 });
+```
+
+### Bun Build
+
+```javascript
+// build.ts
+import codeTransformer from "@apm-js-collab/code-transformer-bundler-plugins/bun";
+
+await Bun.build({
+  entrypoints: ["src/index.ts"],
+  plugins: [
+    codeTransformer({
+      instrumentations: [
+        // ... your instrumentations
+      ],
+    }),
+  ],
+});
+```
+
+### Bun Run
+
+```javascript
+// plugin.ts
+import codeTransformer from "@apm-js-collab/code-transformer-bundler-plugins/bun";
+import { plugin } from "bun";
+
+plugin(codeTransformer({
+  instrumentations: [
+    // ... your instrumentations
+  ],
+}));
+```
+
+```bash
+$ bun run --import=./plugin.ts app.ts
 ```

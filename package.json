@@ -8,6 +8,7 @@
         "webpack",
         "vite",
         "esbuild",
+        "bun",
         "turbopack",
         "loader",
         "plugin",
@@ -66,6 +67,10 @@
                 "default": "./dist/cjs/esbuild.cjs"
             }
         },
+        "./bun": {
+            "types": "./dist/esm/bun.d.mts",
+            "default": "./dist/esm/bun.mjs"
+        },
         "./webpack-loader": {
             "types": "./dist/cjs/webpack-loader.d.cts",
             "default": "./dist/cjs/webpack-loader.cjs"
@@ -83,6 +88,7 @@
     },
     "devDependencies": {
         "@types/node": "^20.10.4",
+        "@types/bun": "^1.3.14",
         "esbuild": "^0.25.5",
         "rollup": "^4.9.1",
         "tslib": "^2.6.2",
