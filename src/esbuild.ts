@@ -5,6 +5,7 @@ import {
     type CodeTransformerPluginOptions,
 } from './core';
 
+const filter = /\.(cjs|mjs|cts|mts|tsx|jsx|ts|js)$/
 export default function codeTransformerEsbuild(
     options: CodeTransformerPluginOptions,
 ): Plugin {
@@ -13,7 +14,7 @@ export default function codeTransformerEsbuild(
         setup(build) {
             const transform = createCodeTransformer(options);
 
-            build.onLoad({ filter: /\.(c|m)?js$|\.tsx?$/ }, (args) => {
+            build.onLoad({ filter }, (args) => {
                 const code = readFileSync(args.path, 'utf8');
                 const result = transform(code, args.path);
                 if (!result) return null;

@@ -39,7 +39,7 @@ describe('package.json exports', () => {
     });
 
     describe('subpaths resolve through Node at runtime', () => {
-        const esmEntries = ['rollup', 'webpack', 'vite', 'esbuild'];
+        const esmEntries = ['rollup', 'webpack', 'vite', 'esbuild', 'bun'];
         const cjsEntries = ['rollup', 'webpack', 'vite', 'esbuild', 'webpack-loader'];
 
         it.each(esmEntries)(`import '${pkg.name}/%s' (ESM) loads and exports a function`, (entry) => {
