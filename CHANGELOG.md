@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.2.4...code-transformer-bundler-plugins-v0.3.0) (2026-05-25)
+
+
+### Features
+
+* bun support ([#18](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/18)) ([232247c](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/232247c7dd9eadfb85dc160e1a727ebc4d1ea0f3))
+* remove unplugin dependency ([#15](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/15)) ([7a3ab7e](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/7a3ab7e419e1ec76ad7cfd96a10c41ff33ecff90))
+
+
+### Bug Fixes
+
+* No need to free resources ([#17](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/17)) ([bf1d141](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/bf1d141dea31ef7495ec086118b4690ba4a5cb2e))
+
 ## [0.2.4](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.2.3...code-transformer-bundler-plugins-v0.2.4) (2026-05-22)
 
 
