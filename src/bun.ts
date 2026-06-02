@@ -33,16 +33,38 @@ export default function codeTransformerBun(
     options: CodeTransformerPluginOptions,
 ): Plugin {
     const filter = buildFilter(options);
+
     return {
         name: 'code-transformer',
         setup(build) {
-            const { transform } = createCodeTransformer(options);
+            let transformer = createCodeTransformer(options);
+            let diagnosticsInjected = false;
+
+            if (typeof build.onStart === 'function') {
+                build.onStart(() => {
+                    transformer = createCodeTransformer(options);
+                    diagnosticsInjected = false;
+                });
+            }
 
             build.onLoad({ filter, namespace: 'file' }, (args) => {
                 const contents = readFileSync(args.path, 'utf8');
-                const result = transform(contents, args.path);
+                const result = transformer.transform(contents, args.path);
+                let transformedContents = result ? result.code : contents;
+
+                if (
+                    options.injectDiagnostics &&
+                    !diagnosticsInjected
+                ) {
+                    const injectCode = transformer.getCodeToInject();
+                    if (injectCode) {
+                        transformedContents = injectCode + transformedContents;
+                        diagnosticsInjected = true;
+                    }
+                }
+
                 const loader = loaderForPath(args.path);
-                return { contents: result ? result.code : contents, loader };
+                return { contents: transformedContents, loader };
             });
         },
     };
