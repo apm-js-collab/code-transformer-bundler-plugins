@@ -25,6 +25,16 @@ function getModuleVersion(basedir: string): string | undefined {
 
 // Matcher cache with config hash for cache invalidation
 const matcherCache = new Map<string, ReturnType<typeof create>>();
+const DIAGNOSTICS_STATE_KEY = '__codeTransformerWebpackDiagnostics';
+
+type DiagnosticsState = {
+    transformedModules: Set<string>;
+    failedModules: Set<string>;
+};
+
+function getDiagnosticsState(loaderContext: any): DiagnosticsState | undefined {
+    return loaderContext?._compilation?.[DIAGNOSTICS_STATE_KEY];
+}
 
 /**
  * Get or create a matcher instance with caching based on config hash
@@ -108,10 +118,16 @@ function codeTransformerLoader(
     try {
         // Transform the code
         const result = transformer.transform(code, moduleType, inputSourceMap);
+        const diagnosticsState = getDiagnosticsState(this);
+
+        diagnosticsState?.transformedModules.add(transformer.moduleName);
 
         callback(null, result.code, result.map);
     } catch (error) {
         console.warn(`[code-transformer-loader] Error transforming ${resourcePath}:`, error);
+        const diagnosticsState = getDiagnosticsState(this);
+
+        diagnosticsState?.failedModules.add(moduleDetails.name);
         callback(null, code, inputSourceMap);
     }
 }

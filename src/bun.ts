@@ -36,7 +36,7 @@ export default function codeTransformerBun(
     return {
         name: 'code-transformer',
         setup(build) {
-            const transform = createCodeTransformer(options);
+            const { transform } = createCodeTransformer(options);
 
             build.onLoad({ filter, namespace: 'file' }, (args) => {
                 const contents = readFileSync(args.path, 'utf8');

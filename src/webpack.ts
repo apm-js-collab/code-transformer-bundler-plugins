@@ -1,13 +1,21 @@
 import type { Compiler } from 'webpack';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import type { CodeTransformerPluginOptions } from './core';
+import {
+    type CodeTransformerPluginOptions,
+} from './core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // dist/esm/webpack.mjs → dist/cjs/webpack-loader.cjs
 // dist/cjs/webpack.cjs → dist/cjs/webpack-loader.cjs
 const LOADER_PATH = resolve(__dirname, '..', 'cjs', 'webpack-loader.cjs');
+const DIAGNOSTICS_STATE_KEY = '__codeTransformerWebpackDiagnostics';
+
+type DiagnosticsState = {
+    transformedModules: Set<string>;
+    failedModules: Set<string>;
+};
 
 class CodeTransformerWebpackPlugin {
     private readonly options: CodeTransformerPluginOptions;
@@ -17,6 +25,8 @@ class CodeTransformerWebpackPlugin {
     }
 
     apply(compiler: Compiler) {
+        const webpack = (compiler as any).webpack;
+
         compiler.options.module = compiler.options.module || ({ rules: [] } as any);
         compiler.options.module.rules = compiler.options.module.rules || [];
         compiler.options.module.rules.unshift({
@@ -29,6 +39,53 @@ class CodeTransformerWebpackPlugin {
                 },
             ],
         });
+
+        if (this.options.injectDiagnostics) {
+            const ConcatSource = webpack?.sources?.ConcatSource;
+
+            if (ConcatSource && webpack?.Compilation) {
+                compiler.hooks.thisCompilation.tap('code-transformer', (compilation: any) => {
+                    compilation[DIAGNOSTICS_STATE_KEY] = {
+                        transformedModules: new Set<string>(),
+                        failedModules: new Set<string>(),
+                    } satisfies DiagnosticsState;
+
+                    compilation.hooks.processAssets.tap(
+                        {
+                            name: 'code-transformer',
+                            stage: webpack.Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE,
+                        },
+                        () => {
+                            const state: DiagnosticsState | undefined = compilation[DIAGNOSTICS_STATE_KEY];
+
+                            if (!state) {
+                                return;
+                            }
+
+                            const injectCode = this.options.injectDiagnostics?.({
+                                transformedModules: Array.from(state.transformedModules),
+                                failedModules: Array.from(state.failedModules),
+                            });
+
+                            if (!injectCode) {
+                                return;
+                            }
+
+                            for (const asset of compilation.getAssets()) {
+                                if (!/\.(js|ts|jsx|tsx|mjs|cjs)(\?[^?]*)?(#[^#]*)?$/.test(asset.name)) {
+                                    continue;
+                                }
+
+                                compilation.updateAsset(
+                                    asset.name,
+                                    (source: any) => new ConcatSource(injectCode, source),
+                                );
+                            }
+                        },
+                    );
+                });
+            }
+        }
     }
 }
 

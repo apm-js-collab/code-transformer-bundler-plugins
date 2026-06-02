@@ -1,22 +1,13 @@
 import type { Plugin } from 'vite';
-import {
-    createCodeTransformer,
-    type CodeTransformerPluginOptions,
-} from './core';
+import type { CodeTransformerPluginOptions } from './core';
+import codeTransformerRollup from './rollup'; // Ensure rollup types are included for TransformResult
 
 export default function codeTransformerVite(
     options: CodeTransformerPluginOptions,
-): Plugin {
-    const transform = createCodeTransformer(options);
-
+): Plugin { 
     return {
-        name: 'code-transformer',
         enforce: 'pre',
-        transform(code, id) {
-            const result = transform(code, id);
-            if (!result) return null;
-            return { code: result.code, map: result.map ?? null };
-        },
+        ...codeTransformerRollup(options),
     };
 }
 
