@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@apm-js-collab/code-transformer@^0.13.0":
-  version "0.13.0"
-  resolved "https://registry.yarnpkg.com/@apm-js-collab/code-transformer/-/code-transformer-0.13.0.tgz#3bb80cf17f2a09bc19faafb7c6133a5d057488e7"
-  integrity sha512-JPUR9mNUJV3SP0l6XQ5xGG/3IMOELzNy86vCq/+GOkIUsxEWC6AMIviAQ5sxrfQQEbQofjIzU3kshx4RQnRq7A==
+"@apm-js-collab/code-transformer@^0.14.0":
+  version "0.14.0"
+  resolved "https://registry.yarnpkg.com/@apm-js-collab/code-transformer/-/code-transformer-0.14.0.tgz#b4a43bfbc67047038eac1e276d1388285f714bbe"
+  integrity sha512-6G+FETQ/VyRBsIkDDZ5sc9fb7O6d6W9rm8bZPHumISZw/6nwxvnS+VTyxd3sKM04aZwHG5hJIHb7VPdPCLieSQ==
   dependencies:
     "@types/estree" "^1.0.8"
     astring "^1.9.0"
@@ -1076,7 +1076,7 @@ loupe@^3.1.0, loupe@^3.1.4:
   resolved "https://registry.yarnpkg.com/loupe/-/loupe-3.2.1.tgz#0095cf56dc5b7a9a7c08ff5b1a8796ec8ad17e76"
   integrity sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==
 
-magic-string@^0.30.17:
+magic-string@^0.30.17, magic-string@^0.30.21:
   version "0.30.21"
   resolved "https://registry.yarnpkg.com/magic-string/-/magic-string-0.30.21.tgz#56763ec09a0fa8091df27879fd94d19078c00d91"
   integrity sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==

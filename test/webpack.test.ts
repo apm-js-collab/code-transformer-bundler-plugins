@@ -80,6 +80,65 @@ describe('Webpack integration tests', () => {
         });
     });
 
+    it('should inject diagnostics code with webpack', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const plugin = codeTransformerPlugin({
+            instrumentations: [testCase.instrumentation],
+            injectDiagnostics: (diagnostics) => {
+                return `console.log('Diagnostics: transformedModules=${diagnostics.transformedModules.join(',')}, failedModules=${diagnostics.failedModules.join(',')}');`;
+            }
+        });
+
+        const compiler = webpack({
+            mode: 'production',
+            entry: testFile,
+            output: {
+                path: join(fixture.testDir, 'dist'),
+                filename: 'bundle.js'
+            },
+            plugins: [plugin],
+            externals: Array.from(builtinModules),
+            optimization: {
+                minimize: false
+            }
+        });
+
+        return new Promise<void>((resolve, reject) => {
+            compiler.run((err, stats) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                if (stats?.hasErrors()) {
+                    reject(new Error(stats.toString()));
+                    return;
+                }
+
+                const outputPath = join(fixture.testDir, 'dist', 'bundle.js');
+
+                let source: string;
+                try {
+                    source = readFileSync(outputPath, 'utf8');
+                } catch (readErr) {
+                    reject(new Error(`Failed to read output file: ${readErr}`));
+                    return;
+                }
+
+                expect(source).toBeDefined();
+                expect(typeof source).toBe('string');
+                expect(source).toContain('transformedModules=test-module');
+
+                compiler.close(() => {
+                    resolve();
+                });
+            });
+        });
+    });
+
     it('should integrate with webpack and transform CommonJS modules', async () => {
         const testCase = commonTestCases.commonjs;
         const testFile = join(fixture.moduleDir, testCase.filename);

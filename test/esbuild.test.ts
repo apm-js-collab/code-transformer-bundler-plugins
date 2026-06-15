@@ -61,6 +61,35 @@ describe('esbuild integration tests', () => {
         output = output.replace(/plugin-test-\d+-[a-z0-9]+/g, 'NORMALIZED_TEST_DIR');
     });
 
+    it('should inject diagnostics code with esbuild', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const plugin = codeTransformerPlugin({
+            instrumentations: [testCase.instrumentation],
+            injectDiagnostics: (diagnostics) => {
+                return `console.log('Diagnostics: transformedModules=${diagnostics.transformedModules.join(',')}, failedModules=${diagnostics.failedModules.join(',')}');`;
+            }
+        });
+
+        const result = await build({
+            entryPoints: [testFile],
+            bundle: true,
+            write: false,
+            format: 'esm',
+            plugins: [plugin],
+            external: Array.from(builtinModules),
+            platform: 'node'
+        });
+
+        expect(result.outputFiles).toBeDefined();
+        expect(result.outputFiles.length).toBeGreaterThan(0);
+
+        const output = new TextDecoder().decode(result.outputFiles[0].contents);
+        expect(output).toContain('transformedModules=test-module');
+    });
+
     it('should integrate with esbuild and transform .mjs files', async () => {
         const testCase = commonTestCases.mjsModule;
         const testFile = join(fixture.moduleDir, testCase.filename);

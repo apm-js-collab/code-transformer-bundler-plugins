@@ -11,11 +11,103 @@ const moduleDetailsFromPath =
     (moduleDetailsFromPathImport as any).default ||
     (moduleDetailsFromPathImport as any);
 
+type Diagnostics = {
+  transformedModules: string[];
+  failedModules: string[];
+};
+
+// We need to be careful not to inject the snippet before any `"use strict";`s.
+// As an additional complication `"use strict";`s may come after any number of comments.
+export const COMMENT_USE_STRICT_REGEX =
+  // Note: CodeQL complains that this regex potentially has n^2 runtime. This likely won't affect realistic files.
+  /^(?:\s*|\/\*(?:.|\r|\n)*?\*\/|\/\/.*[\n\r])*(?:"[^"]*";|'[^']*';)?/;
+
+function stripQueryAndHashFromPath(path: string): string {
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  return path.split("?")[0]!.split("#")[0]!;
+}
+
+/**
+ * Checks if a file is a JavaScript file based on its extension.
+ * Handles query strings and hashes in the filename.
+ */
+export function isJsFile(fileName: string): boolean {
+  const cleanFileName = stripQueryAndHashFromPath(fileName);
+  return [".js", ".mjs", ".cjs"].some((ext) => cleanFileName.endsWith(ext));
+}
+
+/**
+ * Checks if a chunk contains only import/export statements and no substantial code.
+ *
+ * In Vite MPA (multi-page application) mode, HTML entry points create "facade" chunks
+ * that only contain import statements to load shared modules. These should not have
+ * Sentry code injected. However, in SPA mode, the main bundle also has an HTML facade
+ * but contains substantial application code that SHOULD have debug IDs injected.
+ *
+ * @ref https://github.com/getsentry/sentry-javascript-bundler-plugins/issues/829
+ * @ref https://github.com/getsentry/sentry-javascript-bundler-plugins/issues/839
+ */
+export function containsOnlyImports(code: string): boolean {
+  const codeWithoutImports = code
+    // Remove side effect imports: import '/path'; or import "./path";
+    // Using explicit negated character classes to avoid polynomial backtracking
+    .replace(/^\s*import\s+(?:'[^'\n]*'|"[^"\n]*"|`[^`\n]*`)[\s;]*$/gm, "")
+    // Remove named/default imports: import x from '/path'; import { x } from '/path';
+    .replace(/^\s*import\b[^'"`\n]*\bfrom\s+(?:'[^'\n]*'|"[^"\n]*"|`[^`\n]*`)[\s;]*$/gm, "")
+    // Remove re-exports: export * from '/path'; export { x } from '/path';
+    .replace(/^\s*export\b[^'"`\n]*\bfrom\s+(?:'[^'\n]*'|"[^"\n]*"|`[^`\n]*`)[\s;]*$/gm, "")
+    // Remove block comments
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    // Remove line comments
+    .replace(/\/\/.*$/gm, "")
+    // Remove "use strict" directives
+    .replace(/["']use strict["']\s*;?/g, "")
+    .trim();
+
+  return codeWithoutImports.length === 0;
+}
+
+/**
+ * Checks if a chunk should be skipped for code injection
+ *
+ * This is necessary to handle Vite's MPA (multi-page application) mode where
+ * HTML entry points create "facade" chunks that should not contain injected code.
+ * See: https://github.com/getsentry/sentry-javascript-bundler-plugins/issues/829
+ *
+ * However, in SPA mode, the main bundle also has an HTML facade but contains
+ * substantial application code. We should NOT skip injection for these bundles.
+ *
+ * @param code - The chunk's code content
+ * @param facadeModuleId - The facade module ID (if any) - HTML files create facade chunks
+ * @returns true if the chunk should be skipped
+ */
+export function shouldSkipCodeInjection(
+  code: string,
+  facadeModuleId: string | null | undefined,
+): boolean {
+  // Skip empty chunks - these are placeholder chunks that should be optimized away
+  if (code.trim().length === 0) {
+    return true;
+  }
+
+  // For HTML facade chunks, only skip if they contain only import statements
+  if (
+    facadeModuleId &&
+    stripQueryAndHashFromPath(facadeModuleId).endsWith(".html")
+  ) {
+    return containsOnlyImports(code);
+  }
+
+  return false;
+}
+
 export interface CodeTransformerPluginOptions {
-    /** Array of instrumentation configurations */
-    instrumentations: InstrumentationConfig[];
-    /** Optional path to a polyfill module for diagnostics_channel */
-    dcModule?: string;
+  /** Array of instrumentation configurations */
+  instrumentations: InstrumentationConfig[];
+  /** Optional path to a polyfill module for diagnostics_channel */
+  dcModule?: string;
+  /** Optional callback that that injects the code returned */
+  injectDiagnostics?: (diagnostics: Diagnostics) => string | undefined;
 }
 
 export interface TransformResult {
@@ -54,42 +146,61 @@ function detectModuleType(id: string, code: string): ModuleType {
  * Call `dispose` when the bundler tears the plugin down.
  */
 export function createCodeTransformer(options: CodeTransformerPluginOptions) {
-    const matcher = create(options.instrumentations, options.dcModule ?? null);
+  const matcher = create(options.instrumentations, options.dcModule ?? null);
+  const transformedModules = new Set<string>();
+  const failedModules = new Set<string>();
 
-    return (
-        code: string,
-        id: string,
-        inputSourceMap?: string | null,
-    ): TransformResult | null => {
-        const moduleType = detectModuleType(id, code);
-        const moduleDetails = moduleDetailsFromPath(id);
-        if (!moduleDetails) return null;
+  const getCodeToInject = (): string | undefined => {
+    if (!options.injectDiagnostics) {
+      return undefined;
+    }
 
-        const moduleVersion = getModuleVersion(moduleDetails.basedir);
-        if (!moduleVersion) {
-            console.warn(
-                `No 'package.json' version found for module ${moduleDetails.name} at ${moduleDetails.basedir}. Skipping transformation.`,
-            );
-            return null;
-        }
-
-        const transformer = matcher.getTransformer(
-            moduleDetails.name,
-            moduleVersion,
-            moduleDetails.path,
-        );
-        if (!transformer) return null;
-
-        try {
-            const result = transformer.transform(
-                code,
-                moduleType,
-                inputSourceMap ?? null,
-            );
-            return { code: result.code, map: result.map };
-        } catch (error) {
-            console.warn(`Code transformation failed for ${id}: ${error}`);
-            return null;
-        }
+    const diagnostics = {
+      transformedModules: Array.from(transformedModules),
+      failedModules: Array.from(failedModules),
     };
+
+    return options.injectDiagnostics(diagnostics);
+  };
+
+  const transform = (
+    code: string,
+    id: string,
+    inputSourceMap?: string | null,
+  ): TransformResult | null => {
+    const moduleType = detectModuleType(id, code);
+    const moduleDetails = moduleDetailsFromPath(id);
+    if (!moduleDetails) return null;
+
+    const moduleVersion = getModuleVersion(moduleDetails.basedir);
+    if (!moduleVersion) {
+      console.warn(
+        `No 'package.json' version found for module ${moduleDetails.name} at ${moduleDetails.basedir}. Skipping transformation.`,
+      );
+      return null;
+    }
+
+    const transformer = matcher.getTransformer(
+      moduleDetails.name,
+      moduleVersion,
+      moduleDetails.path,
+    );
+    if (!transformer) return null;
+
+    try {
+      const result = transformer.transform(
+        code,
+        moduleType,
+        inputSourceMap ?? null,
+      );
+      transformedModules.add(transformer.moduleName);
+      return { code: result.code, map: result.map };
+    } catch (error) {
+      console.warn(`Code transformation failed for ${id}: ${error}`);
+      failedModules.add(moduleDetails.name);
+      return null;
+    }
+  };
+
+  return { transform, getCodeToInject };
 }

@@ -36,9 +36,14 @@ function runBunBuild(
     entry: string,
     outdir: string,
     instrumentations: unknown[],
+    withDiagnosticsInjection = false,
 ): RunBunBuildResult {
     mkdirSync(outdir, { recursive: true });
     const runnerPath = join(outdir, '__bun_runner.mjs');
+    const diagnosticsConfig = withDiagnosticsInjection
+        ? `,
+    injectDiagnostics: (diagnostics) => "console.log('Diagnostics: transformedModules=" + diagnostics.transformedModules.join(',') + ", failedModules=" + diagnostics.failedModules.join(',') + "');"`
+        : '';
     const script = `
 import codeTransformerBun from ${JSON.stringify(pluginPath)};
 const result = await Bun.build({
@@ -46,7 +51,7 @@ const result = await Bun.build({
     outdir: ${JSON.stringify(outdir)},
     target: 'node',
     external: ${JSON.stringify(builtinModules)},
-    plugins: [codeTransformerBun({ instrumentations: ${JSON.stringify(instrumentations)} })],
+    plugins: [codeTransformerBun({ instrumentations: ${JSON.stringify(instrumentations)}${diagnosticsConfig} })],
 });
 if (!result.success) {
     for (const log of result.logs) console.error(String(log));
@@ -133,6 +138,22 @@ describeIfBun('Bun integration tests', () => {
         expect(r.stderr).toBe('');
         expect(r.status).toBe(0);
         expect(r.output).toContain('test:commonjs');
+    });
+
+    it('should inject diagnostics code with Bun', () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const r = runBunBuild(
+            testFile,
+            join(fixture.testDir, 'out'),
+            [testCase.instrumentation],
+            true,
+        );
+        expect(r.stderr).toBe('');
+        expect(r.status).toBe(0);
+        expect(r.output).toContain('transformedModules=test-module');
     });
 
     it('should not transform files outside node_modules', () => {

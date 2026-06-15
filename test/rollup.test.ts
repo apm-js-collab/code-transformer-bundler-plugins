@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, inject } from 'vitest';
 import codeTransformerPlugin from '../dist/esm/rollup.mjs';
 import { rollup } from 'rollup';
 import { join } from 'path';
@@ -330,5 +330,33 @@ export function complexFunction() {
 
         expect(result.code).toBeDefined();
         expect(result.code).toContain('test:complex');
+    });
+
+    it('should handle ES modules with explicit import/export', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const plugin = codeTransformerPlugin({
+            instrumentations: [testCase.instrumentation],
+            injectDiagnostics: (diagnostics) => {
+                // For testing purposes, we can just return a string that includes the diagnostics info
+                return `console.log('Diagnostics: transformedModules=${diagnostics.transformedModules.join(',')}, failedModules=${diagnostics.failedModules.join(',')}');`;
+            }
+        });
+
+        const bundle = await rollup({
+            input: testFile,
+            plugins: [plugin],
+            external: (id) => builtinModules.includes(id)
+
+        });
+
+        const { output } = await bundle.generate({ format: 'es' });
+        const result = output[0];
+
+        expect(result.code).toBeDefined();
+        expect(typeof result.code).toBe('string');
+        expect(result.code).toContain('transformedModules=test-module');
     });
 });

@@ -67,6 +67,39 @@ describe('Vite integration tests', () => {
         }
     });
 
+    it('should inject diagnostics code with vite', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const plugin = codeTransformerPlugin({
+            instrumentations: [testCase.instrumentation],
+            injectDiagnostics: (diagnostics) => {
+                return `console.log('Diagnostics: transformedModules=${diagnostics.transformedModules.join(',')}, failedModules=${diagnostics.failedModules.join(',')}');`;
+            }
+        });
+
+        const result = await build({
+            root: fixture.testDir,
+            build: {
+                write: false,
+                rollupOptions: {
+                    input: testFile,
+                    external: Array.from(builtinModules)
+                }
+            },
+            plugins: [plugin]
+        });
+
+        expect(result).toBeDefined();
+        if ('output' in result) {
+            const output = result.output[0];
+            expect(output.code).toBeDefined();
+            expect(typeof output.code).toBe('string');
+            expect(output.code).toContain('transformedModules=test-module');
+        }
+    });
+
     it('should integrate with vite and transform .mjs files', async () => {
         const testCase = commonTestCases.mjsModule;
         const testFile = join(fixture.moduleDir, testCase.filename);
