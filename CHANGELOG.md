@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.3.0...code-transformer-bundler-plugins-v0.4.0) (2026-06-15)
+
+
+### Features
+
+* Optionally inject hook diagnostics ([#19](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/19)) ([4607691](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/46076917a3a48c8eea73783e2faa59764c57acba))
+
 ## [0.3.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.2.4...code-transformer-bundler-plugins-v0.3.0) (2026-05-25)
 
 
