@@ -26,6 +26,7 @@ export default defineConfig({
             formats: ['es', 'cjs'],
         },
         rollupOptions: {
+            platform: 'node',
             external: [
                 ...builtinModules,
                 ...builtinModules.map((m) => `node:${m}`),
