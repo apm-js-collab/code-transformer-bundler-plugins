@@ -194,7 +194,10 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
 
     const moduleType = detectModuleType(id, code);
 
-    if (moduleType === 'unknown') return null;
+    if (moduleType === 'unknown') {
+      failedModules.add(moduleDetails.name);
+      return null;
+    };
 
     try {
       const result = transformer.transform(
