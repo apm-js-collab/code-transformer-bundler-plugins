@@ -5,6 +5,7 @@ import { join } from 'path';
 import { writeFileSync, mkdirSync } from 'fs';
 import { createTestFixture, commonTestCases, type TestFixture } from './test-utils.js';
 import { builtinModules } from 'module';
+import MagicString from 'magic-string';
 
 describe('Vite integration tests', () => {
     let fixture: TestFixture;
@@ -144,12 +145,12 @@ export function testFunction() {
                 channelName: 'test:channel',
                 module: {
                     name: 'test-module',
-                    versionRange: '>=1.0.0' as any,
+                    versionRange: '>=1.0.0',
                     filePath: 'outside.js'
                 },
                 functionQuery: {
                     functionName: 'testFunction',
-                    kind: 'Async' as const
+                    kind: 'Async'
                 }
             }]
         });
@@ -184,7 +185,7 @@ export function testFunction() {
                 ...testCase.instrumentation,
                 module: {
                     ...testCase.instrumentation.module,
-                    versionRange: '>=2.0.0' as any // Version doesn't match (module is 1.2.3)
+                    versionRange: '>=2.0.0'
                 }
             }]
         });
@@ -206,6 +207,87 @@ export function testFunction() {
             const output = result.output[0];
             expect(output.code).toBeDefined();
             expect(output.code).not.toContain('test:function');
+        }
+    });
+
+    it('should generate a sourcemap when sourcemaps are enabled', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const plugin = codeTransformerPlugin({
+            instrumentations: [testCase.instrumentation]
+        });
+
+        const result = await build({
+            root: fixture.testDir,
+            build: {
+                write: false,
+                sourcemap: true,
+                rollupOptions: {
+                    input: testFile,
+                    external: Array.from(builtinModules)
+                }
+            },
+            plugins: [plugin]
+        });
+
+        expect(result).toBeDefined();
+        if ('output' in result) {
+            const chunk = result.output.find(o => o.type === 'chunk');
+            expect(chunk).toBeDefined();
+            if (chunk?.type === 'chunk') {
+                expect(chunk.code).toContain('test:esmodule');
+                expect(chunk.map).toBeDefined();
+                expect(chunk.map?.sources.some(s => s?.includes('esmodule.js'))).toBe(true);
+            }
+        }
+    });
+
+    it('should chain sourcemaps from a prior transform plugin', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        // Runs before code-transformer (same enforce tier, listed first) and shifts line numbers
+        const priorTransformPlugin = {
+            name: 'prior-transform',
+            enforce: 'pre',
+            transform(code: string, id: string) {
+                if (!id.includes('esmodule.js')) return null;
+                const ms = new MagicString(code);
+                ms.prepend('// inserted by prior transform\n');
+                return { code: ms.toString(), map: ms.generateMap({ hires: true, source: id }) };
+            }
+        };
+
+        const plugin = codeTransformerPlugin({
+            instrumentations: [testCase.instrumentation]
+        });
+
+        const result = await build({
+            root: fixture.testDir,
+            build: {
+                write: false,
+                sourcemap: true,
+                rollupOptions: {
+                    input: testFile,
+                    external: Array.from(builtinModules)
+                }
+            },
+            plugins: [priorTransformPlugin, plugin]
+        });
+
+        expect(result).toBeDefined();
+        if ('output' in result) {
+            const chunk = result.output.find(o => o.type === 'chunk');
+            expect(chunk).toBeDefined();
+            if (chunk?.type === 'chunk') {
+                expect(chunk.code).toContain('test:esmodule');
+                // Sourcemap must chain back to the original file, not the intermediate output
+                expect(chunk.map).toBeDefined();
+                expect(chunk.map?.sources.some(s => s?.includes('esmodule.js'))).toBe(true);
+            }
         }
     });
 
@@ -232,26 +314,26 @@ export class HttpClient {
                     channelName: 'http:fetch',
                     module: {
                         name: 'test-module',
-                        versionRange: '>=1.0.0' as any,
+                        versionRange: '>=1.0.0',
                         filePath: 'lib/http.js'
                     },
                     functionQuery: {
                         className: 'HttpClient',
                         methodName: 'fetch',
-                        kind: 'Async' as const
+                        kind: 'Async'
                     }
                 },
                 {
                     channelName: 'http:post',
                     module: {
                         name: 'test-module',
-                        versionRange: '>=1.0.0' as any,
+                        versionRange: '>=1.0.0',
                         filePath: 'lib/http.js'
                     },
                     functionQuery: {
                         className: 'HttpClient',
                         methodName: 'post',
-                        kind: 'Async' as const
+                        kind: 'Async'
                     }
                 }
             ]

@@ -172,7 +172,7 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
   const transform = (
     code: string,
     id: string,
-    inputSourceMap?: string | null,
+    inputSourceMap?: string | object | null,
   ): TransformResult | null => {
     const moduleDetails = moduleDetailsFromPath(id);
     if (!moduleDetails) return null;
@@ -208,7 +208,7 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
       transformedModules.add(transformer.moduleName);
       return { code: result.code, map: result.map };
     } catch (error) {
-      console.warn(`Code transformation failed for ${id}: ${error}`);
+      console.warn(`Code transformation failed for '${id}'`, error);
       failedModules.add(moduleDetails.name);
       return null;
     }

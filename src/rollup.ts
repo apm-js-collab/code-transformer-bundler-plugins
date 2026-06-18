@@ -1,4 +1,4 @@
-import type { Plugin } from "rollup";
+import type { OutputOptions, Plugin, TransformPluginContext } from "rollup";
 import {
   COMMENT_USE_STRICT_REGEX,
   createCodeTransformer,
@@ -13,12 +13,18 @@ export default function codeTransformerRollup(
 ): Plugin {
   const { transform: transformCode, getCodeToInject } =
     createCodeTransformer(options);
+  
+  let sourcemapsEnabled = false;
+  
+  const outputOptions = (inputOptions: OutputOptions) => {
+    sourcemapsEnabled = !!inputOptions.sourcemap; 
+  };
 
   const renderChunk = (
     code: string,
     chunk: { fileName: string; facadeModuleId?: string | null },
     _?: unknown,
-    meta?: { magicString?: MagicString },
+    meta?: { magicString?: MagicString, chunks: unknown },
   ): {
     code: string;
     map?: SourceMap;
@@ -68,8 +74,9 @@ export default function codeTransformerRollup(
     };
   };
 
-  const transform = (code: string, id: string) => {
-    const result = transformCode(code, id);
+  function transform(this: TransformPluginContext, code: string, id: string) {
+    const inputSourceMap = sourcemapsEnabled ? this.getCombinedSourcemap() : undefined;
+    const result = transformCode(code, id, inputSourceMap);
     if (!result) return null;
     return { code: result.code, map: result.map ?? null };
   };
@@ -79,14 +86,16 @@ export default function codeTransformerRollup(
   if (!options.injectDiagnostics) {
     return {
       name,
+      outputOptions,
       transform,
     };
   }
 
   return {
     name,
+    outputOptions,
     transform,
-    renderChunk: renderChunk as unknown as Plugin["renderChunk"],
+    renderChunk,
   };
 }
 
