@@ -7,7 +7,7 @@ export default function codeTransformerVite(
 ): Plugin { 
     return {
         enforce: 'pre',
-        ...codeTransformerRollup(options),
+        ...codeTransformerRollup(options) as Plugin,
     };
 }
 
