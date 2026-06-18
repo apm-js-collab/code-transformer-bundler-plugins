@@ -6,8 +6,10 @@ import {
 import { extname, join } from 'path';
 import { readFileSync } from 'fs';
 import * as moduleDetailsFromPathImport from 'module-details-from-path';
+import type { ModuleDetails } from 'module-details-from-path';
+import { initSync as lexerInitSync, parse as lexerParse } from 'es-module-lexer';
 
-const moduleDetailsFromPath =
+const moduleDetailsFromPath: (filepath: string) => ModuleDetails =
     (moduleDetailsFromPathImport as any).default ||
     (moduleDetailsFromPathImport as any);
 
@@ -122,7 +124,7 @@ function getModuleVersion(basedir: string): string | undefined {
         if (packageJson.version) {
             return packageJson.version;
         }
-    } catch (error) {
+    } catch (_) {
         //
     }
     return undefined;
@@ -133,9 +135,13 @@ function detectModuleType(id: string, code: string): ModuleType {
     if (ext === '.mjs' || ext === '.ts' || ext === '.tsx') return 'esm';
     if (ext === '.cjs') return 'cjs';
     if (ext === '.js') {
-        return code.includes('export ') || code.includes('import ')
-            ? 'esm'
-            : 'cjs';
+      try {
+        lexerInitSync();
+        const [imports, exports] = lexerParse(code);
+        return imports.length > 0 || exports.length > 0 ? 'esm' : 'cjs';
+      } catch (_) {
+        // ignore
+      }
     }
     return 'unknown';
 }
@@ -168,7 +174,6 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
     id: string,
     inputSourceMap?: string | null,
   ): TransformResult | null => {
-    const moduleType = detectModuleType(id, code);
     const moduleDetails = moduleDetailsFromPath(id);
     if (!moduleDetails) return null;
 
@@ -186,6 +191,13 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
       moduleDetails.path,
     );
     if (!transformer) return null;
+
+    const moduleType = detectModuleType(id, code);
+
+    if (moduleType === 'unknown') {
+      failedModules.add(moduleDetails.name);
+      return null;
+    };
 
     try {
       const result = transformer.transform(
