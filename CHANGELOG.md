@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.4.0...code-transformer-bundler-plugins-v0.5.0) (2026-06-18)
+
+
+### Features
+
+* Improve esm/cjs detection ([#22](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/22)) ([cc17e6c](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/cc17e6c2d0f4200997f5f29911c351bfe59088fc))
+
+
+### Bug Fixes
+
+* Sourcemap pass through with Roll{up,down}/Vite ([#24](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/24)) ([7e06293](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/7e06293960e8fd045f451879ff45c8caafc5ab12))
+
 ## [0.4.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.3.0...code-transformer-bundler-plugins-v0.4.0) (2026-06-15)
 
 
