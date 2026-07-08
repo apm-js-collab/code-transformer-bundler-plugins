@@ -83,7 +83,7 @@
         "access": "public"
     },
     "dependencies": {
-        "@apm-js-collab/code-transformer": "^0.15.0",
+        "@apm-js-collab/code-transformer": "^0.16.0",
         "es-module-lexer": "^2.1.0",
         "module-details-from-path": "^1.0.4",
         "magic-string": "^0.30.21"
