@@ -2,8 +2,18 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import codeTransformerPlugin from '../dist/esm/esbuild.mjs';
 import { build } from 'esbuild';
 import { join } from 'path';
-import { writeFileSync, mkdirSync } from 'fs';
-import { createTestFixture, commonTestCases, type TestFixture } from './test-utils.js';
+import { writeFileSync, mkdirSync, readFileSync, realpathSync } from 'fs';
+import { resolve } from 'path';
+import {
+    createTestFixture,
+    createMultiEntryFixture,
+    commonTestCases,
+    countInjections,
+    diagnosticsSnippet,
+    multiEntryInstrumentation,
+    type MultiEntryFixture,
+    type TestFixture,
+} from './test-utils.js';
 import { builtinModules } from 'module';
 
 describe('esbuild integration tests', () => {
@@ -279,5 +289,145 @@ export class HttpClient {
 
         let output = new TextDecoder().decode(result.outputFiles[0].contents);
         expect(output).toContain('test:commonjs');        // Normalize file paths in output for consistent snapshots
+    });
+});
+
+describe('esbuild injectDiagnostics entry point injection', () => {
+    let fixture: MultiEntryFixture;
+
+    beforeEach(() => {
+        fixture = createMultiEntryFixture();
+    });
+
+    afterEach(() => {
+        fixture.cleanup();
+    });
+
+    function buildOptions(write: boolean) {
+        return {
+            entryPoints: [fixture.entryA, fixture.entryB],
+            bundle: true,
+            splitting: true,
+            format: 'esm' as const,
+            outdir: join(fixture.testDir, 'out'),
+            write,
+            platform: 'node' as const,
+            external: Array.from(builtinModules),
+            plugins: [
+                codeTransformerPlugin({
+                    instrumentations: [multiEntryInstrumentation],
+                    injectDiagnostics: diagnosticsSnippet,
+                }),
+            ],
+        };
+    }
+
+    /**
+     * Outputs for the two configured entry points. esbuild also sets
+     * `entryPoint` on dynamically imported chunks, so that field alone would
+     * wrongly classify the `lazy.js` async chunk as an entry.
+     */
+    function entryOutputPaths(metafile: {
+        outputs: Record<string, { entryPoint?: string }>;
+    }): Set<string> {
+        // esbuild reports source paths with symlinks resolved, and the fixture
+        // lives under a symlinked tmpdir on macOS.
+        const configured = new Set([
+            realpathSync(fixture.entryA),
+            realpathSync(fixture.entryB),
+        ]);
+
+        return new Set(
+            Object.entries(metafile.outputs)
+                .filter(
+                    ([, o]) =>
+                        o.entryPoint && configured.has(realpathSync(resolve(o.entryPoint))),
+                )
+                .map(([path]) => resolve(path)),
+        );
+    }
+
+    it('should force the metafile on so entry points can be identified', async () => {
+        const result = await build(buildOptions(false));
+
+        expect(result.metafile).toBeDefined();
+    });
+
+    it('should produce async chunks that esbuild also labels as entry points', async () => {
+        const result = await build(buildOptions(false));
+
+        const labelled = Object.values(result.metafile!.outputs).filter(
+            (o) => o.entryPoint,
+        );
+
+        // Guards the tests below: the lazy.js chunk carries an `entryPoint` but
+        // is not one of the two configured entries.
+        expect(labelled.length).toBe(3);
+        expect(entryOutputPaths(result.metafile!).size).toBe(2);
+    });
+
+    it('should inject into entry outputs only when writing to disk', async () => {
+        const result = await build(buildOptions(true));
+
+        const entryPaths = entryOutputPaths(result.metafile!);
+        const allPaths = Object.keys(result.metafile!.outputs).map((p) =>
+            resolve(p),
+        );
+
+        expect(allPaths.length).toBeGreaterThan(entryPaths.size);
+
+        for (const path of allPaths) {
+            const expected = entryPaths.has(path) ? 1 : 0;
+            expect(countInjections(readFileSync(path, 'utf8'))).toBe(expected);
+        }
+    });
+
+    it('should inject into entry outputs only when write is false', async () => {
+        const result = await build(buildOptions(false));
+
+        const entryPaths = entryOutputPaths(result.metafile!);
+
+        expect(entryPaths.size).toBe(2);
+        expect(result.outputFiles.length).toBeGreaterThan(entryPaths.size);
+
+        for (const file of result.outputFiles) {
+            const expected = entryPaths.has(resolve(file.path)) ? 1 : 0;
+            expect(countInjections(file.text)).toBe(expected);
+        }
+    });
+
+    it('should inject into the stdout output', async () => {
+        const result = await build({
+            entryPoints: [fixture.entryA],
+            bundle: true,
+            write: false,
+            format: 'esm',
+            platform: 'node',
+            external: Array.from(builtinModules),
+            plugins: [
+                codeTransformerPlugin({
+                    instrumentations: [multiEntryInstrumentation],
+                    injectDiagnostics: diagnosticsSnippet,
+                }),
+            ],
+        });
+
+        expect(result.outputFiles[0].path).toBe('<stdout>');
+        expect(countInjections(result.outputFiles[0].text)).toBe(1);
+    });
+
+    it('should report the transformed module in every entry output', async () => {
+        const result = await build(buildOptions(false));
+
+        const entryPaths = entryOutputPaths(result.metafile!);
+        const entryFiles = result.outputFiles.filter((f) =>
+            entryPaths.has(resolve(f.path)),
+        );
+
+        expect(entryFiles).toHaveLength(2);
+
+        for (const file of entryFiles) {
+            expect(file.text).toContain('transformedModules=test-module');
+        }
     });
 });

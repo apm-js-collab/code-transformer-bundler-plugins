@@ -22,7 +22,7 @@ export default function codeTransformerRollup(
 
   const renderChunk = (
     code: string,
-    chunk: { fileName: string; facadeModuleId?: string | null },
+    chunk: { fileName: string; facadeModuleId?: string | null; isEntry?: boolean },
     _?: unknown,
     meta?: { magicString?: MagicString, chunks: unknown },
   ): {
@@ -31,6 +31,13 @@ export default function codeTransformerRollup(
   } | null => {
     if (!isJsFile(chunk.fileName)) {
       return null; // returning null means not modifying the chunk at all
+    }
+
+    // Diagnostics belong on entry points only. Shared/vendor and async chunks
+    // would otherwise each get their own copy of the snippet, running it once
+    // per chunk rather than once per entry.
+    if (!chunk.isEntry) {
+      return null;
     }
 
     // Skip empty chunks and HTML facade chunks (Vite MPA)

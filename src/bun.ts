@@ -1,9 +1,25 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import {
     createCodeTransformer,
+    isJsFile,
     type CodeTransformerPluginOptions,
 } from './core';
 import type { Plugin } from 'esbuild';
+
+/**
+ * The subset of Bun's `PluginBuilder` we rely on beyond what esbuild's `Plugin`
+ * type describes. `onEnd` and `config` are only present when the plugin runs
+ * inside `Bun.build()`; the runtime `Bun.plugin()` builder has neither.
+ */
+type BunPluginBuilder = {
+    onEnd?: (callback: (result: BunBuildOutput) => void) => unknown;
+    config?: { outdir?: string };
+};
+
+type BunBuildOutput = {
+    success: boolean;
+    outputs: Array<{ path: string; kind: string }>;
+};
 
 function loaderForPath(path: string): 'ts' | 'tsx' | 'jsx' | 'js' {
     if (path.endsWith('.tsx')) return 'tsx';
@@ -38,33 +54,64 @@ export default function codeTransformerBun(
         name: 'code-transformer',
         setup(build) {
             let transformer = createCodeTransformer(options);
-            let diagnosticsInjected = false;
+            const bunBuild = build as unknown as BunPluginBuilder;
 
             if (typeof build.onStart === 'function') {
                 build.onStart(() => {
                     transformer = createCodeTransformer(options);
-                    diagnosticsInjected = false;
                 });
             }
 
             build.onLoad({ filter, namespace: 'file' }, (args) => {
                 const contents = readFileSync(args.path, 'utf8');
                 const result = transformer.transform(contents, args.path);
-                let transformedContents = result ? result.code : contents;
+                const loader = loaderForPath(args.path);
+                return { contents: result ? result.code : contents, loader };
+            });
 
-                if (
-                    options.injectDiagnostics &&
-                    !diagnosticsInjected
-                ) {
-                    const injectCode = transformer.getCodeToInject();
-                    if (injectCode) {
-                        transformedContents = injectCode + transformedContents;
-                        diagnosticsInjected = true;
-                    }
+            if (!options.injectDiagnostics) {
+                return;
+            }
+
+            if (typeof bunBuild.onEnd !== 'function') {
+                console.warn(
+                    "'injectDiagnostics' is not supported when the plugin is registered at runtime via 'Bun.plugin()' because there is no bundle to inject into. Use it with 'Bun.build()'.",
+                );
+                return;
+            }
+
+            // Bun exposes built artifacts as immutable Blobs, so entry points can
+            // only be rewritten once they have been written to disk. `onEnd` runs
+            // after that write, but only an `outdir` build performs one.
+            if (!bunBuild.config?.outdir) {
+                console.warn(
+                    "'injectDiagnostics' requires an 'outdir' in the 'Bun.build()' config because in-memory build outputs cannot be modified.",
+                );
+                return;
+            }
+
+            bunBuild.onEnd((result) => {
+                if (!result.success) {
+                    return;
                 }
 
-                const loader = loaderForPath(args.path);
-                return { contents: transformedContents, loader };
+                const injectCode = transformer.getCodeToInject();
+
+                if (!injectCode) {
+                    return;
+                }
+
+                for (const artifact of result.outputs) {
+                    if (
+                        artifact.kind !== 'entry-point' ||
+                        !isJsFile(artifact.path)
+                    ) {
+                        continue;
+                    }
+
+                    const code = readFileSync(artifact.path, 'utf8');
+                    writeFileSync(artifact.path, injectCode + code);
+                }
             });
         },
     };

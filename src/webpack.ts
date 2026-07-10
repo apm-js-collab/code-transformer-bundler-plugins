@@ -17,6 +17,25 @@ type DiagnosticsState = {
     failedModules: Set<string>;
 };
 
+/**
+ * Asset names of the chunk holding each entry module. Deliberately not
+ * `entrypoint.getFiles()`, which also lists the initial chunks an entry
+ * depends on, and not `compilation.getAssets()`, which lists async chunks too.
+ */
+function entryAssetNames(compilation: any): Set<string> {
+    const names = new Set<string>();
+
+    for (const entrypoint of compilation.entrypoints.values()) {
+        const chunk = entrypoint.getEntrypointChunk?.();
+
+        for (const file of chunk?.files ?? []) {
+            names.add(file);
+        }
+    }
+
+    return names;
+}
+
 class CodeTransformerWebpackPlugin {
     private readonly options: CodeTransformerPluginOptions;
 
@@ -71,13 +90,13 @@ class CodeTransformerWebpackPlugin {
                                 return;
                             }
 
-                            for (const asset of compilation.getAssets()) {
-                                if (!/\.(js|ts|jsx|tsx|mjs|cjs)(\?[^?]*)?(#[^#]*)?$/.test(asset.name)) {
+                            for (const assetName of entryAssetNames(compilation)) {
+                                if (!/\.(js|ts|jsx|tsx|mjs|cjs)(\?[^?]*)?(#[^#]*)?$/.test(assetName)) {
                                     continue;
                                 }
 
                                 compilation.updateAsset(
-                                    asset.name,
+                                    assetName,
                                     (source: any) => new ConcatSource(injectCode, source),
                                 );
                             }
