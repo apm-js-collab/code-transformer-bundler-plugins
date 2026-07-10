@@ -1,5 +1,6 @@
-import type { Plugin } from 'esbuild';
-import { readFileSync, writeFileSync } from 'fs';
+import type { BuildOptions, Metafile, Plugin } from 'esbuild';
+import { readFileSync, realpathSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 import {
     createCodeTransformer,
     isJsFile,
@@ -8,8 +9,78 @@ import {
 
 const filter = /\.(cjs|mjs|cts|mts|tsx|jsx|ts|js)$/;
 
+// When esbuild writes to stdout there is exactly one output and it is always
+// the entry point, so there is nothing to disambiguate.
+const STDOUT = '<stdout>';
+
 function shouldInjectOutput(path: string): boolean {
-    return path === '<stdout>' || isJsFile(path);
+    return path === STDOUT || isJsFile(path);
+}
+
+/**
+ * esbuild reports source paths with symlinks resolved, so entry point paths are
+ * canonicalised before comparison. Falls back to the resolved path for inputs
+ * that do not exist on disk, such as virtual modules from other plugins.
+ */
+function canonicalPath(base: string, path: string): string {
+    const resolved = resolve(base, path);
+
+    try {
+        return realpathSync(resolved);
+    } catch (_) {
+        return resolved;
+    }
+}
+
+/** Canonical paths of the entry points the build was configured with. */
+function configuredEntryPoints(initialOptions: BuildOptions): Set<string> {
+    const { entryPoints, absWorkingDir } = initialOptions;
+    const base = absWorkingDir ?? process.cwd();
+    const paths = new Set<string>();
+
+    if (Array.isArray(entryPoints)) {
+        for (const entry of entryPoints) {
+            paths.add(
+                canonicalPath(base, typeof entry === 'string' ? entry : entry.in),
+            );
+        }
+    } else if (entryPoints) {
+        for (const entry of Object.values(entryPoints)) {
+            paths.add(canonicalPath(base, entry));
+        }
+    }
+
+    return paths;
+}
+
+/**
+ * Absolute paths of the outputs that correspond to a configured entry point.
+ *
+ * A metafile output carries an `entryPoint` for dynamically imported chunks as
+ * well as for real entry points, so the field alone would also match async
+ * chunks. Comparing against the configured entry points excludes those.
+ *
+ * Metafile keys and `entryPoint` values are relative to the working directory
+ * while `outputFiles[].path` is absolute, so everything is resolved first.
+ */
+function entryOutputPaths(
+    metafile: Metafile,
+    initialOptions: BuildOptions,
+): Set<string> {
+    const entryPoints = configuredEntryPoints(initialOptions);
+    const base = initialOptions.absWorkingDir ?? process.cwd();
+    const paths = new Set<string>();
+
+    for (const [outputPath, output] of Object.entries(metafile.outputs)) {
+        if (
+            output.entryPoint &&
+            entryPoints.has(canonicalPath(base, output.entryPoint))
+        ) {
+            paths.add(resolve(base, outputPath));
+        }
+    }
+
+    return paths;
 }
 
 export default function codeTransformerEsbuild(
@@ -42,12 +113,16 @@ export default function codeTransformerEsbuild(
                 return;
             }
 
-            if (build.initialOptions.write !== false) {
-                build.initialOptions.metafile = true;
-            }
+            // The metafile is what tells entry point outputs apart from shared
+            // and async chunks, so it is required in both write modes.
+            build.initialOptions.metafile = true;
 
             build.onEnd((result) => {
                 if (result.errors.length > 0) {
+                    return;
+                }
+
+                if (!result.metafile) {
                     return;
                 }
 
@@ -57,9 +132,21 @@ export default function codeTransformerEsbuild(
                     return;
                 }
 
+                const entryPaths = entryOutputPaths(
+                    result.metafile,
+                    build.initialOptions,
+                );
+
                 if (result.outputFiles) {
                     for (const file of result.outputFiles) {
                         if (!shouldInjectOutput(file.path)) {
+                            continue;
+                        }
+
+                        if (
+                            file.path !== STDOUT &&
+                            !entryPaths.has(resolve(file.path))
+                        ) {
                             continue;
                         }
 
@@ -70,11 +157,7 @@ export default function codeTransformerEsbuild(
                     return;
                 }
 
-                if (!result.metafile) {
-                    return;
-                }
-
-                for (const outputPath of Object.keys(result.metafile.outputs)) {
+                for (const outputPath of entryPaths) {
                     if (!shouldInjectOutput(outputPath)) {
                         continue;
                     }

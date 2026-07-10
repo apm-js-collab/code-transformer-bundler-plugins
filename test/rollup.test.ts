@@ -4,7 +4,16 @@ import { rollup } from 'rollup';
 import { join } from 'path';
 import { writeFileSync, mkdirSync } from 'fs';
 import { builtinModules } from 'module';
-import { createTestFixture, commonTestCases, type TestFixture } from './test-utils.js';
+import {
+    createTestFixture,
+    createMultiEntryFixture,
+    commonTestCases,
+    countInjections,
+    diagnosticsSnippet,
+    multiEntryInstrumentation,
+    type MultiEntryFixture,
+    type TestFixture,
+} from './test-utils.js';
 
 describe('Rollup integration tests', () => {
     let fixture: TestFixture;
@@ -358,5 +367,75 @@ export function complexFunction() {
         expect(result.code).toBeDefined();
         expect(typeof result.code).toBe('string');
         expect(result.code).toContain('transformedModules=test-module');
+    });
+});
+
+describe('Rollup injectDiagnostics entry point injection', () => {
+    let fixture: MultiEntryFixture;
+
+    beforeEach(() => {
+        fixture = createMultiEntryFixture();
+    });
+
+    afterEach(() => {
+        fixture.cleanup();
+    });
+
+    async function buildChunks() {
+        const bundle = await rollup({
+            input: [fixture.entryA, fixture.entryB],
+            plugins: [
+                codeTransformerPlugin({
+                    instrumentations: [multiEntryInstrumentation],
+                    injectDiagnostics: diagnosticsSnippet,
+                }),
+            ],
+            external: (id) => builtinModules.includes(id),
+        });
+
+        const { output } = await bundle.generate({ format: 'es' });
+        return output.filter((o) => o.type === 'chunk');
+    }
+
+    it('should produce both entry and non-entry chunks', async () => {
+        const chunks = await buildChunks();
+
+        // Guards the tests below: without a shared and an async chunk there
+        // would be nothing for the entry point check to exclude.
+        expect(chunks.filter((c) => c.isEntry)).toHaveLength(2);
+        expect(chunks.filter((c) => !c.isEntry).length).toBeGreaterThan(0);
+    });
+
+    it('should inject into every entry chunk exactly once', async () => {
+        const chunks = await buildChunks();
+
+        for (const chunk of chunks.filter((c) => c.isEntry)) {
+            expect(countInjections(chunk.code)).toBe(1);
+        }
+    });
+
+    it('should not inject into shared or async chunks', async () => {
+        const chunks = await buildChunks();
+
+        for (const chunk of chunks.filter((c) => !c.isEntry)) {
+            expect(countInjections(chunk.code)).toBe(0);
+        }
+    });
+
+    it('should report the transformed module in every entry chunk', async () => {
+        const chunks = await buildChunks();
+
+        for (const chunk of chunks.filter((c) => c.isEntry)) {
+            expect(chunk.code).toContain('transformedModules=test-module');
+            expect(chunk.code).toContain('failedModules=');
+        }
+    });
+
+    it('should not register renderChunk when injectDiagnostics is omitted', () => {
+        const plugin = codeTransformerPlugin({
+            instrumentations: [multiEntryInstrumentation],
+        });
+
+        expect(plugin.renderChunk).toBeUndefined();
     });
 });

@@ -3,7 +3,16 @@ import codeTransformerPlugin from '../dist/esm/vite.mjs';
 import { build } from 'vite';
 import { join } from 'path';
 import { writeFileSync, mkdirSync } from 'fs';
-import { createTestFixture, commonTestCases, type TestFixture } from './test-utils.js';
+import {
+    createTestFixture,
+    createMultiEntryFixture,
+    commonTestCases,
+    countInjections,
+    diagnosticsSnippet,
+    multiEntryInstrumentation,
+    type MultiEntryFixture,
+    type TestFixture,
+} from './test-utils.js';
 import { builtinModules } from 'module';
 import MagicString from 'magic-string';
 
@@ -358,6 +367,71 @@ export class HttpClient {
             expect(typeof output.code).toBe('string');
             expect(output.code).toContain('http:fetch');
             expect(output.code).toContain('http:post');
+        }
+    });
+});
+
+describe('Vite injectDiagnostics entry point injection', () => {
+    let fixture: MultiEntryFixture;
+
+    beforeEach(() => {
+        fixture = createMultiEntryFixture();
+    });
+
+    afterEach(() => {
+        fixture.cleanup();
+    });
+
+    async function buildChunks() {
+        const result = await build({
+            root: fixture.testDir,
+            logLevel: 'silent',
+            build: {
+                write: false,
+                minify: false,
+                rollupOptions: {
+                    input: [fixture.entryA, fixture.entryB],
+                    external: Array.from(builtinModules),
+                },
+            },
+            plugins: [
+                codeTransformerPlugin({
+                    instrumentations: [multiEntryInstrumentation],
+                    injectDiagnostics: diagnosticsSnippet,
+                }),
+            ],
+        });
+
+        if (!('output' in result)) {
+            throw new Error('expected a rollup output');
+        }
+
+        return result.output.filter((o) => o.type === 'chunk');
+    }
+
+    it('should produce both entry and non-entry chunks', async () => {
+        const chunks = await buildChunks();
+
+        expect(chunks.filter((c) => c.isEntry)).toHaveLength(2);
+        expect(chunks.filter((c) => !c.isEntry).length).toBeGreaterThan(0);
+    });
+
+    it('should inject into entry chunks only, exactly once each', async () => {
+        const chunks = await buildChunks();
+
+        for (const chunk of chunks) {
+            const expected = chunk.isEntry ? 1 : 0;
+            expect(countInjections(chunk.code), `chunk ${chunk.fileName}`).toBe(
+                expected,
+            );
+        }
+    });
+
+    it('should report the transformed module in every entry chunk', async () => {
+        const chunks = await buildChunks();
+
+        for (const chunk of chunks.filter((c) => c.isEntry)) {
+            expect(chunk.code).toContain('transformedModules=test-module');
         }
     });
 });

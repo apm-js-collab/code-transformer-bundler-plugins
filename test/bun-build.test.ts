@@ -7,7 +7,12 @@ import { fileURLToPath } from 'url';
 import { builtinModules } from 'module';
 import {
     createTestFixture,
+    createMultiEntryFixture,
     commonTestCases,
+    countInjections,
+    DIAGNOSTICS_MARKER,
+    multiEntryInstrumentation,
+    type MultiEntryFixture,
     type TestFixture,
 } from './test-utils.js';
 
@@ -246,5 +251,152 @@ export class HttpClient {
         expect(r.status).toBe(0);
         expect(r.output).toContain('http:fetch');
         expect(r.output).toContain('http:post');
+    });
+});
+
+/** Source text of the `injectDiagnostics` callback, embedded in the Bun runner. */
+const INJECT_FN = `(d) => "console.log('${DIAGNOSTICS_MARKER} transformedModules=" + d.transformedModules.join('|') + " failedModules=" + d.failedModules.join('|') + "');"`;
+
+const OUTPUTS_PREFIX = '__OUTPUTS__';
+
+interface BunArtifact {
+    path: string;
+    kind: string;
+}
+
+/** Runs a Bun script and returns its exit status, stderr and parsed stdout. */
+function runBunScript(
+    scriptPath: string,
+    source: string,
+): { status: number | null; stderr: string; stdout: string } {
+    writeFileSync(scriptPath, source);
+    const r = spawnSync('bun', [scriptPath], { encoding: 'utf8' });
+    return {
+        status: r.status,
+        stderr: r.stderr ?? '',
+        stdout: r.stdout ?? '',
+    };
+}
+
+describeIfBun('Bun injectDiagnostics entry point injection', () => {
+    let fixture: MultiEntryFixture;
+    let outdir: string;
+
+    beforeEach(() => {
+        fixture = createMultiEntryFixture();
+        outdir = join(fixture.testDir, 'out');
+        mkdirSync(outdir, { recursive: true });
+    });
+
+    afterEach(() => {
+        fixture.cleanup();
+    });
+
+    /** Builds both entries with splitting on and returns the emitted artifacts. */
+    function buildMultiEntry(): { artifacts: BunArtifact[]; stderr: string } {
+        const script = `
+import codeTransformerBun from ${JSON.stringify(pluginPath)};
+const result = await Bun.build({
+    entrypoints: [${JSON.stringify(fixture.entryA)}, ${JSON.stringify(fixture.entryB)}],
+    outdir: ${JSON.stringify(outdir)},
+    target: 'node',
+    splitting: true,
+    external: ${JSON.stringify(builtinModules)},
+    plugins: [codeTransformerBun({
+        instrumentations: ${JSON.stringify([multiEntryInstrumentation])},
+        injectDiagnostics: ${INJECT_FN},
+    })],
+});
+if (!result.success) {
+    for (const log of result.logs) console.error(String(log));
+    process.exit(1);
+}
+console.log('${OUTPUTS_PREFIX}' + JSON.stringify(result.outputs.map((o) => ({ path: o.path, kind: o.kind }))));
+`;
+        const r = runBunScript(join(outdir, '__runner.mjs'), script);
+        expect(r.status).toBe(0);
+
+        const line = r.stdout
+            .split('\n')
+            .find((l) => l.startsWith(OUTPUTS_PREFIX));
+
+        return {
+            artifacts: JSON.parse(line!.slice(OUTPUTS_PREFIX.length)),
+            stderr: r.stderr,
+        };
+    }
+
+    const jsArtifacts = (artifacts: BunArtifact[]) =>
+        artifacts.filter((a) => a.path.endsWith('.js'));
+
+    it('should emit a non-entry chunk alongside the entry points', () => {
+        const { artifacts } = buildMultiEntry();
+        const js = jsArtifacts(artifacts);
+
+        // Guards the tests below: without a shared chunk there would be
+        // nothing for the entry point check to exclude.
+        expect(js.filter((a) => a.kind === 'entry-point')).toHaveLength(2);
+        expect(js.filter((a) => a.kind !== 'entry-point').length).toBeGreaterThan(0);
+    });
+
+    it('should inject into entry points exactly once and no other chunk', () => {
+        const { artifacts } = buildMultiEntry();
+
+        for (const artifact of jsArtifacts(artifacts)) {
+            const code = readFileSync(artifact.path, 'utf8');
+            const expected = artifact.kind === 'entry-point' ? 1 : 0;
+            expect(countInjections(code), `artifact ${artifact.path}`).toBe(expected);
+        }
+    });
+
+    it('should report the transformed module, not an empty diagnostics payload', () => {
+        const { artifacts } = buildMultiEntry();
+        const entries = jsArtifacts(artifacts).filter(
+            (a) => a.kind === 'entry-point',
+        );
+
+        for (const entry of entries) {
+            const code = readFileSync(entry.path, 'utf8');
+            expect(code).toContain('transformedModules=test-module');
+        }
+    });
+
+    it('should warn and skip injection when the build has no outdir', () => {
+        const script = `
+import codeTransformerBun from ${JSON.stringify(pluginPath)};
+const result = await Bun.build({
+    entrypoints: [${JSON.stringify(fixture.entryA)}],
+    target: 'node',
+    external: ${JSON.stringify(builtinModules)},
+    plugins: [codeTransformerBun({
+        instrumentations: ${JSON.stringify([multiEntryInstrumentation])},
+        injectDiagnostics: ${INJECT_FN},
+    })],
+});
+if (!result.success) process.exit(1);
+console.log('${OUTPUTS_PREFIX}' + (await result.outputs[0].text()).includes('${DIAGNOSTICS_MARKER}'));
+`;
+        const r = runBunScript(join(outdir, '__no_outdir.mjs'), script);
+
+        expect(r.status).toBe(0);
+        expect(r.stderr).toContain("requires an 'outdir'");
+        expect(r.stdout).toContain(`${OUTPUTS_PREFIX}false`);
+    });
+
+    it('should warn when registered at runtime via Bun.plugin', () => {
+        const script = `
+import { plugin } from 'bun';
+import codeTransformerBun from ${JSON.stringify(pluginPath)};
+plugin(codeTransformerBun({
+    instrumentations: ${JSON.stringify([multiEntryInstrumentation])},
+    injectDiagnostics: ${INJECT_FN},
+}));
+console.log('registered');
+`;
+        const r = runBunScript(join(outdir, '__runtime.mjs'), script);
+
+        expect(r.status).toBe(0);
+        expect(r.stdout).toContain('registered');
+        expect(r.stderr).toContain("'injectDiagnostics' is not supported");
     });
 });

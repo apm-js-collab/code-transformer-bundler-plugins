@@ -8,6 +8,87 @@ export interface TestFixture {
     cleanup: () => void;
 }
 
+export interface MultiEntryFixture extends TestFixture {
+    /** Entry that statically imports the shared module and dynamically imports the lazy one */
+    entryA: string;
+    /** Entry that statically imports the shared module */
+    entryB: string;
+    /** Imported by both entries, so it becomes a shared chunk under code splitting */
+    sharedFile: string;
+    /** Only reachable via dynamic import, so it becomes an async chunk */
+    lazyFile: string;
+}
+
+/**
+ * A unique token that `diagnosticsSnippet` embeds in the injected code so tests
+ * can count how many times a chunk was injected into.
+ */
+export const DIAGNOSTICS_MARKER = 'DIAGNOSTICS_INJECTED_MARKER';
+
+export type Diagnostics = {
+    transformedModules: string[];
+    failedModules: string[];
+};
+
+/** The `injectDiagnostics` callback used across the entry point injection tests. */
+export function diagnosticsSnippet(diagnostics: Diagnostics): string {
+    return `console.log('${DIAGNOSTICS_MARKER} transformedModules=${diagnostics.transformedModules.join('|')} failedModules=${diagnostics.failedModules.join('|')}');`;
+}
+
+/** How many times the diagnostics snippet was injected into `code`. */
+export function countInjections(code: string): number {
+    return code.split(DIAGNOSTICS_MARKER).length - 1;
+}
+
+/**
+ * A two-entry app that also produces non-entry chunks: `shared.js` is imported
+ * by both entries and `lazy.js` is only reachable through a dynamic import.
+ * Both entries pull in the instrumented `test-module` so that the diagnostics
+ * payload is non-empty.
+ *
+ * The instrumented module is referenced by relative path rather than by bare
+ * specifier so that no bundler needs a node-resolution plugin.
+ */
+export function createMultiEntryFixture(): MultiEntryFixture {
+    const fixture = createTestFixture();
+    const srcDir = join(fixture.testDir, 'src');
+    mkdirSync(srcDir, { recursive: true });
+
+    const testCase = commonTestCases.esmodule;
+    writeFileSync(join(fixture.moduleDir, testCase.filename), testCase.code);
+
+    const instrumented = `../node_modules/test-module/${testCase.filename}`;
+
+    const sharedFile = join(srcDir, 'shared.js');
+    writeFileSync(
+        sharedFile,
+        `import { testFunction } from '${instrumented}';
+export async function shared() { return testFunction(); }
+`,
+    );
+
+    const lazyFile = join(srcDir, 'lazy.js');
+    writeFileSync(lazyFile, `export function lazy() { return 'lazy'; }\n`);
+
+    const entryA = join(srcDir, 'a.js');
+    writeFileSync(
+        entryA,
+        `import { shared } from './shared.js';
+export const a = shared().then(() => import('./lazy.js'));
+`,
+    );
+
+    const entryB = join(srcDir, 'b.js');
+    writeFileSync(
+        entryB,
+        `import { shared } from './shared.js';
+export const b = shared();
+`,
+    );
+
+    return { ...fixture, entryA, entryB, sharedFile, lazyFile };
+}
+
 export function createTestFixture(): TestFixture {
     // Create a temporary directory for each test
     const testDir = join(tmpdir(), `plugin-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
@@ -129,3 +210,6 @@ export function testFunction() {
         }
     }
 };
+
+/** The instrumentation matching the module pulled in by `createMultiEntryFixture`. */
+export const multiEntryInstrumentation = commonTestCases.esmodule.instrumentation;
