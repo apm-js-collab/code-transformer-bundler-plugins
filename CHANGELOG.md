@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.5.0...code-transformer-bundler-plugins-v0.6.0) (2026-07-10)
+
+
+### Features
+
+* Update orchestrion to v0.18.0 ([#27](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/27)) ([a392ab0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/a392ab0fed16664195e52af90137b852d0dad7f9))
+
+
+### Bug Fixes
+
+* `injectDiagnostics` should only inject into entry points ([#26](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/26)) ([f93feac](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/f93feac0bab41bf0eaf73c278bb3878183617c43))
+
 ## [0.5.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.4.0...code-transformer-bundler-plugins-v0.5.0) (2026-06-18)
 
 
