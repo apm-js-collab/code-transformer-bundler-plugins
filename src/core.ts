@@ -240,3 +240,5 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
 
   return { transform, getCodeToInject };
 }
+
+export { InstrumentationConfig, ModuleMatcher, FunctionBehavior, FunctionQuery } from '@apm-js-collab/code-transformer';

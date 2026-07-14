@@ -27,6 +27,16 @@
     },
     "license": "MIT",
     "exports": {
+        "./core": {
+            "import": {
+                "types": "./dist/esm/core.d.mts",
+                "default": "./dist/esm/core.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/core.d.cts",
+                "default": "./dist/cjs/core.cjs"
+            }
+        },
         "./rollup": {
             "import": {
                 "types": "./dist/esm/rollup.d.mts",
