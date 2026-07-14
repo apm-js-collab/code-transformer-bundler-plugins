@@ -81,12 +81,30 @@ export default function codeTransformerRollup(
     };
   };
 
-  function transform(this: TransformPluginContext, code: string, id: string) {
-    const inputSourceMap = sourcemapsEnabled ? this.getCombinedSourcemap() : undefined;
+  function transformHandler(
+    this: TransformPluginContext,
+    code: string,
+    id: string,
+  ) {
+    const inputSourceMap = sourcemapsEnabled
+      ? this.getCombinedSourcemap()
+      : undefined;
     const result = transformCode(code, id, inputSourceMap);
     if (!result) return null;
     return { code: result.code, map: result.map ?? null };
-  };
+  }
+
+  // By default all modules we transform live within `node_modules`, so restrict
+  // the transform hook to those ids. On bundlers that support hook filters
+  // (Rollup >= 4.38, Rolldown, Vite) this avoids invoking the handler for every
+  // module in the user's own source. Bundlers without filter support ignore
+  // `filter` and call the handler for all modules, where core bails out.
+  const idFilter =
+    options.transformFilter === undefined ? /node_modules/ : options.transformFilter;
+  const transform: Plugin["transform"] =
+    idFilter === false
+      ? transformHandler
+      : { filter: { id: idFilter }, handler: transformHandler };
 
   const name = "code-transformer";
 

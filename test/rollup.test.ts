@@ -36,14 +36,39 @@ describe('Rollup integration tests', () => {
         expect(firstPlugin.name).toBe('code-transformer');
     });
 
-    it('should have a transform method', () => {
+    it('should have a filtered transform hook that targets node_modules by default', () => {
         const plugin = codeTransformerPlugin({
             instrumentations: []
         });
 
         // The plugin can be a single plugin or an array, check the first plugin
         const firstPlugin = Array.isArray(plugin) ? plugin[0] : plugin;
+        // By default the transform hook uses the object form with an id filter
+        expect(typeof firstPlugin.transform).toBe('object');
+        expect(firstPlugin.transform.filter).toEqual({ id: /node_modules/ });
+        expect(typeof firstPlugin.transform.handler).toBe('function');
+    });
+
+    it('should use a plain transform function when filtering is disabled', () => {
+        const plugin = codeTransformerPlugin({
+            instrumentations: [],
+            transformFilter: false
+        });
+
+        const firstPlugin = Array.isArray(plugin) ? plugin[0] : plugin;
         expect(typeof firstPlugin.transform).toBe('function');
+    });
+
+    it('should apply a custom transform filter', () => {
+        const plugin = codeTransformerPlugin({
+            instrumentations: [],
+            transformFilter: { include: /\.js$/, exclude: /node_modules/ }
+        });
+
+        const firstPlugin = Array.isArray(plugin) ? plugin[0] : plugin;
+        expect(firstPlugin.transform.filter).toEqual({
+            id: { include: /\.js$/, exclude: /node_modules/ }
+        });
     });
 
     it('should handle CommonJS modules correctly', async () => {

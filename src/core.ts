@@ -103,6 +103,20 @@ export function shouldSkipCodeInjection(
   return false;
 }
 
+/**
+ * A matcher for module ids, mirroring the shape accepted by the bundler
+ * transform hook filter (Rollup >= 4.38, Rolldown, Vite). A single string/RegExp
+ * (or array) is treated as an `include`; the object form allows both.
+ */
+export type TransformIdFilter =
+  | string
+  | RegExp
+  | Array<string | RegExp>
+  | {
+      include?: string | RegExp | Array<string | RegExp>;
+      exclude?: string | RegExp | Array<string | RegExp>;
+    };
+
 export interface CodeTransformerPluginOptions {
   /** Array of instrumentation configurations */
   instrumentations: InstrumentationConfig[];
@@ -110,6 +124,19 @@ export interface CodeTransformerPluginOptions {
   dcModule?: string;
   /** Optional callback that that injects the code returned */
   injectDiagnostics?: (diagnostics: Diagnostics) => string | undefined;
+  /**
+   * Restricts which modules the transform hook runs on, via the bundler's hook
+   * filter (Rollup >= 4.38, Rolldown, Vite). All built-in instrumentations live
+   * within `node_modules`, which is the default. Provide your own matcher to
+   * broaden or narrow this — e.g. to also transform your own source — or pass
+   * `false` to disable filtering entirely.
+   *
+   * Bundlers without hook-filter support (esbuild, webpack) ignore this; the
+   * transformer skips non-matching modules regardless.
+   *
+   * @default /node_modules/
+   */
+  transformFilter?: TransformIdFilter | false;
 }
 
 export interface TransformResult {
