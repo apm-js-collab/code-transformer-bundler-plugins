@@ -37,14 +37,17 @@ describe('Vite integration tests', () => {
         expect(firstPlugin.name).toBe('code-transformer');
     });
 
-    it('should have a transform method', () => {
+    it('should have a filtered transform hook that targets node_modules by default', () => {
         const plugin = codeTransformerPlugin({
             instrumentations: []
         });
 
         // The plugin can be a single plugin or an array, check the first plugin
         const firstPlugin = Array.isArray(plugin) ? plugin[0] : plugin;
-        expect(typeof firstPlugin.transform).toBe('function');
+        // By default the transform hook uses the object form with an id filter
+        expect(typeof firstPlugin.transform).toBe('object');
+        expect(firstPlugin.transform.filter).toEqual({ id: /node_modules/ });
+        expect(typeof firstPlugin.transform.handler).toBe('function');
     });
 
     it('should integrate with vite and transform ES modules', async () => {
