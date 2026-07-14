@@ -179,9 +179,6 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
 
     const moduleVersion = getModuleVersion(moduleDetails.basedir);
     if (!moduleVersion) {
-      console.warn(
-        `No 'package.json' version found for module ${moduleDetails.name} at ${moduleDetails.basedir}. Skipping transformation.`,
-      );
       return null;
     }
 
