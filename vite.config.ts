@@ -4,6 +4,7 @@ import { builtinModules } from 'module';
 import { resolve } from 'path';
 
 const entries = {
+    core: 'src/core.ts',
     rollup: 'src/rollup.ts',
     webpack: 'src/webpack.ts',
     vite: 'src/vite.ts',
