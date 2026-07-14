@@ -5,13 +5,8 @@ import {
 } from '@apm-js-collab/code-transformer';
 import { extname, join } from 'path';
 import { readFileSync } from 'fs';
-import * as moduleDetailsFromPathImport from 'module-details-from-path';
-import type { ModuleDetails } from 'module-details-from-path';
+import moduleDetailsFromPath from 'module-details-from-path';
 import { initSync as lexerInitSync, parse as lexerParse } from 'es-module-lexer';
-
-const moduleDetailsFromPath: (filepath: string) => ModuleDetails =
-    (moduleDetailsFromPathImport as any).default ||
-    (moduleDetailsFromPathImport as any);
 
 type Diagnostics = {
   transformedModules: string[];
@@ -241,4 +236,4 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
   return { transform, getCodeToInject };
 }
 
-export { InstrumentationConfig, ModuleMatcher, FunctionBehavior, FunctionQuery } from '@apm-js-collab/code-transformer';
+export type { InstrumentationConfig, ModuleMatcher, FunctionBehavior, FunctionQuery } from '@apm-js-collab/code-transformer';

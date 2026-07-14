@@ -46,7 +46,7 @@ export default defineConfig({
                     dir: 'dist/cjs',
                     entryFileNames: '[name].cjs',
                     chunkFileNames: '[name]-[hash].cjs',
-                    exports: 'default',
+                    exports: 'auto',
                 },
             ],
         },
