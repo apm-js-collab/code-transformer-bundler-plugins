@@ -34,6 +34,50 @@ describe('Webpack integration tests', () => {
         expect(typeof plugin.apply).toBe('function');
     });
 
+    // Turbopack rejects loader options that are not plain JSON, so the plugin
+    // must not forward RegExp instances or callbacks to the loader.
+    it('should register JSON-serializable loader options', () => {
+        const testCase = commonTestCases.esmodule;
+        const compiler = webpack({
+            mode: 'production',
+            entry: join(fixture.moduleDir, testCase.filename),
+            plugins: [
+                codeTransformerPlugin({
+                    instrumentations: [
+                        {
+                            ...testCase.instrumentation,
+                            module: {
+                                ...testCase.instrumentation.module,
+                                filePath: /esmodule\.js$/,
+                            },
+                        },
+                    ],
+                    injectDiagnostics: diagnosticsSnippet,
+                }),
+            ],
+        });
+
+        const rule = compiler.options.module.rules[0] as {
+            use: Array<{ options: unknown }>;
+        };
+        const options = rule.use[0]!.options;
+
+        expect(JSON.parse(JSON.stringify(options))).toEqual(options);
+        expect(options).toEqual({
+            instrumentations: [
+                {
+                    ...testCase.instrumentation,
+                    module: {
+                        ...testCase.instrumentation.module,
+                        filePath: { type: 'RegExp', source: 'esmodule\\.js$', flags: '' },
+                    },
+                },
+            ],
+        });
+
+        compiler.close(() => {});
+    });
+
     it('should integrate with webpack and transform ES modules', async () => {
         const testCase = commonTestCases.esmodule;
         const testFile = join(fixture.moduleDir, testCase.filename);
