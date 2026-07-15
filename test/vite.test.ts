@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import codeTransformerPlugin from '../dist/esm/vite.mjs';
 import { build } from 'vite';
 import { join } from 'path';
@@ -6,10 +6,14 @@ import { writeFileSync, mkdirSync } from 'fs';
 import {
     createTestFixture,
     createMultiEntryFixture,
+    createTracingLibraryFixture,
     commonTestCases,
     countInjections,
     diagnosticsSnippet,
     multiEntryInstrumentation,
+    programInjectionTransform,
+    INTEGRATION_MARKER,
+    TRACING_LIBRARY_NAME,
     type MultiEntryFixture,
     type TestFixture,
 } from './test-utils.js';
@@ -435,6 +439,228 @@ describe('Vite injectDiagnostics entry point injection', () => {
 
         for (const chunk of chunks.filter((c) => c.isEntry)) {
             expect(chunk.code).toContain('transformedModules=test-module');
+        }
+    });
+});
+
+describe('Vite customTransforms per-file injection', () => {
+    let fixture: TestFixture;
+
+    beforeEach(() => {
+        fixture = createTestFixture();
+    });
+
+    afterEach(() => {
+        fixture.cleanup();
+    });
+
+    function integrationSnippet(moduleName: string): string {
+        return `import { subscribeTo } from '${TRACING_LIBRARY_NAME}';\nsubscribeTo('${moduleName}');`;
+    }
+
+    /** The injection site: same module matcher, Program node, custom transform. */
+    function injectionConfig(module: Record<string, unknown>) {
+        return {
+            channelName: 'integration-injection',
+            module,
+            astQuery: 'Program',
+            transform: 'injectIntegration',
+        };
+    }
+
+    async function buildOutput(input: string, plugin: unknown): Promise<string> {
+        const result = await build({
+            root: fixture.testDir,
+            logLevel: 'silent',
+            build: {
+                write: false,
+                minify: false,
+                rollupOptions: {
+                    input,
+                    external: Array.from(builtinModules),
+                },
+            },
+            plugins: [plugin as never],
+        });
+
+        if (!('output' in result)) {
+            throw new Error('expected a rollup output');
+        }
+
+        return result.output
+            .filter((o) => o.type === 'chunk')
+            .map((c) => c.code)
+            .join('\n');
+    }
+
+    it('should inject the snippet and bundle its bare import from node_modules', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+        createTracingLibraryFixture(fixture);
+
+        const code = await buildOutput(
+            testFile,
+            codeTransformerPlugin({
+                instrumentations: [
+                    testCase.instrumentation,
+                    injectionConfig(testCase.instrumentation.module),
+                ],
+                customTransforms: {
+                    injectIntegration: programInjectionTransform({
+                        'test-module': integrationSnippet('test-module'),
+                    }),
+                },
+            }),
+        );
+
+        // The instrumentation itself still applies
+        expect(code).toContain('test:esmodule');
+        // The snippet was injected and its import resolved into the bundle
+        expect(code).toMatch(/subscribeTo\(["']test-module["']\)/);
+        expect(code).toContain(INTEGRATION_MARKER);
+    });
+
+    it('should serve multiple modules with a single transform', async () => {
+        const testCase = commonTestCases.esmodule;
+        writeFileSync(join(fixture.moduleDir, testCase.filename), testCase.code);
+
+        const otherDir = join(fixture.testDir, 'node_modules', 'other-module');
+        mkdirSync(otherDir, { recursive: true });
+        writeFileSync(
+            join(otherDir, 'package.json'),
+            JSON.stringify({ name: 'other-module', version: '2.0.0', main: 'index.js' }),
+        );
+        writeFileSync(
+            join(otherDir, 'index.js'),
+            'export async function otherFunction() { return 1; }\n',
+        );
+
+        createTracingLibraryFixture(fixture);
+
+        const entryFile = join(fixture.testDir, 'entry.js');
+        writeFileSync(
+            entryFile,
+            `import { testFunction } from './node_modules/test-module/${testCase.filename}';
+import { otherFunction } from './node_modules/other-module/index.js';
+export const results = Promise.all([testFunction(), otherFunction()]);
+`,
+        );
+
+        const otherModuleMatcher = {
+            name: 'other-module',
+            versionRange: '>=1.0.0' as never,
+            filePath: 'index.js',
+        };
+
+        const code = await buildOutput(
+            entryFile,
+            codeTransformerPlugin({
+                instrumentations: [
+                    testCase.instrumentation,
+                    {
+                        channelName: 'other:channel',
+                        module: otherModuleMatcher,
+                        functionQuery: {
+                            functionName: 'otherFunction',
+                            kind: 'Async' as const,
+                        },
+                    },
+                    injectionConfig(testCase.instrumentation.module),
+                    injectionConfig(otherModuleMatcher),
+                ],
+                customTransforms: {
+                    // One transform for all sites, branching on state.module.name
+                    injectIntegration: programInjectionTransform({
+                        'test-module': integrationSnippet('test-module'),
+                        'other-module': integrationSnippet('other-module'),
+                    }),
+                },
+            }),
+        );
+
+        expect(code).toMatch(/subscribeTo\(["']test-module["']\)/);
+        expect(code).toMatch(/subscribeTo\(["']other-module["']\)/);
+        expect(code).toContain(INTEGRATION_MARKER);
+    });
+
+    it('should not call the transform when the version range does not match', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+        createTracingLibraryFixture(fixture);
+
+        // Fixture module is 1.2.3; nothing matches >=2.0.0
+        const unmatchedModule = {
+            ...testCase.instrumentation.module,
+            versionRange: '>=2.0.0' as never,
+        };
+
+        const transform = vi.fn(
+            programInjectionTransform({
+                'test-module': integrationSnippet('test-module'),
+            }),
+        );
+
+        const code = await buildOutput(
+            testFile,
+            codeTransformerPlugin({
+                instrumentations: [
+                    { ...testCase.instrumentation, module: unmatchedModule },
+                    injectionConfig(unmatchedModule),
+                ],
+                customTransforms: { injectIntegration: transform },
+            }),
+        );
+
+        expect(transform).not.toHaveBeenCalled();
+        expect(code).not.toContain('subscribeTo');
+        expect(code).not.toContain(INTEGRATION_MARKER);
+    });
+
+    it('should keep sourcemaps pointing at the original file', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+        createTracingLibraryFixture(fixture);
+
+        const result = await build({
+            root: fixture.testDir,
+            logLevel: 'silent',
+            build: {
+                write: false,
+                minify: false,
+                sourcemap: true,
+                rollupOptions: {
+                    input: testFile,
+                    external: Array.from(builtinModules),
+                },
+            },
+            plugins: [
+                codeTransformerPlugin({
+                    instrumentations: [
+                        testCase.instrumentation,
+                        injectionConfig(testCase.instrumentation.module),
+                    ],
+                    customTransforms: {
+                        injectIntegration: programInjectionTransform({
+                            'test-module': integrationSnippet('test-module'),
+                        }),
+                    },
+                }),
+            ],
+        });
+
+        if (!('output' in result)) {
+            throw new Error('expected a rollup output');
+        }
+
+        const chunk = result.output.find((o) => o.type === 'chunk');
+        expect(chunk).toBeDefined();
+        if (chunk?.type === 'chunk') {
+            expect(chunk.code).toMatch(/subscribeTo\(["']test-module["']\)/);
+            expect(chunk.map).toBeDefined();
+            expect(chunk.map?.sources.some((s) => s?.includes('esmodule.js'))).toBe(true);
         }
     });
 });
