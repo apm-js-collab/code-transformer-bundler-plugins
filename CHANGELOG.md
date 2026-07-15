@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.1](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.6.0...code-transformer-bundler-plugins-v0.6.1) (2026-07-15)
+
+
+### Bug Fixes
+
+* Remove unnecessary warning ([#30](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/30)) ([fc63cd0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/fc63cd0be2e1bc4c046dd8b7acee405e7e5d59a2))
+
+
+### Performance Improvements
+
+* filter transform hook to `node_modules` by default ([#29](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/29)) ([b85a8bf](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/b85a8bf3fc218be1ea2ae4a95357dfb5322fd840))
+
 ## [0.6.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.5.0...code-transformer-bundler-plugins-v0.6.0) (2026-07-10)
 
 
