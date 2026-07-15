@@ -1,7 +1,12 @@
-import { create, ModuleType, type InstrumentationConfig } from '@apm-js-collab/code-transformer';
+import { create, ModuleType } from '@apm-js-collab/code-transformer';
 import { join, extname } from 'path';
 import { readFileSync } from 'fs';
 import * as moduleDetailsFromPathImport from 'module-details-from-path';
+import {
+    deserializeInstrumentations,
+    serializeInstrumentations,
+    type AnyInstrumentationConfig,
+} from './instrumentation-serde';
 
 // Handle CJS default export - module-details-from-path exports a function directly
 const moduleDetailsFromPath = (moduleDetailsFromPathImport as any).default || moduleDetailsFromPathImport as any;
@@ -39,8 +44,13 @@ function getDiagnosticsState(loaderContext: any): DiagnosticsState | undefined {
 /**
  * Get or create a matcher instance with caching based on config hash
  */
-function getMatcher(instrumentations: InstrumentationConfig[], dcModule?: string) {
-    const configHash = JSON.stringify({ instrumentations, dcModule });
+function getMatcher(instrumentations: AnyInstrumentationConfig[], dcModule?: string) {
+    // Hash the serialized form: JSON.stringify turns a raw RegExp into `{}`,
+    // which would make configs differing only in their regex hash identically.
+    const configHash = JSON.stringify({
+        instrumentations: serializeInstrumentations(instrumentations),
+        dcModule,
+    });
 
     if (matcherCache.has(configHash)) {
         return matcherCache.get(configHash)!;
@@ -53,7 +63,7 @@ function getMatcher(instrumentations: InstrumentationConfig[], dcModule?: string
         }
     }
 
-    const matcher = create(instrumentations, dcModule ?? null);
+    const matcher = create(deserializeInstrumentations(instrumentations), dcModule ?? null);
     matcherCache.set(configHash, matcher);
     return matcher;
 }
@@ -134,10 +144,17 @@ function codeTransformerLoader(
 
 // Namespace to attach types to the function
 namespace codeTransformerLoader {
-    /** Options for the code transformer webpack loader */
+    /**
+     * Options for the code transformer webpack loader.
+     *
+     * Turbopack requires loader options to be JSON-serializable, so any
+     * `RegExp` in `module.filePath` must be passed in its serialized
+     * `{ source, flags }` form there — see `serializeInstrumentations` in the
+     * `/core` export.
+     */
     export interface Options {
         /** Array of instrumentation configurations */
-        instrumentations: InstrumentationConfig[];
+        instrumentations: AnyInstrumentationConfig[];
         /** Optional path to a polyfill module for diagnostics_channel */
         dcModule?: string;
     }

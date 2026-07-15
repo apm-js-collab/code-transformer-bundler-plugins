@@ -237,3 +237,10 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
 }
 
 export type { InstrumentationConfig, ModuleMatcher, FunctionBehavior, FunctionQuery } from '@apm-js-collab/code-transformer';
+export {
+    serializeInstrumentations,
+    deserializeInstrumentations,
+    type SerializedRegExp,
+    type SerializableInstrumentationConfig,
+    type AnyInstrumentationConfig,
+} from './instrumentation-serde';

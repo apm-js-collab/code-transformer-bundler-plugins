@@ -4,6 +4,7 @@ import { dirname, resolve } from 'path';
 import {
     type CodeTransformerPluginOptions,
 } from './core';
+import { serializeInstrumentations } from './instrumentation-serde';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -48,13 +49,19 @@ class CodeTransformerWebpackPlugin {
 
         compiler.options.module = compiler.options.module || ({ rules: [] } as any);
         compiler.options.module.rules = compiler.options.module.rules || [];
+        // Pass only what the loader reads, in JSON-serializable form —
+        // callbacks and RegExp instances would break bundlers that serialize
+        // loader options (e.g. Turbopack).
         compiler.options.module.rules.unshift({
             test: /\.(c|m)?jsx?$|\.tsx?$/,
             enforce: 'pre',
             use: [
                 {
                     loader: LOADER_PATH,
-                    options: this.options,
+                    options: {
+                        instrumentations: serializeInstrumentations(this.options.instrumentations),
+                        ...(this.options.dcModule ? { dcModule: this.options.dcModule } : {}),
+                    },
                 },
             ],
         });
