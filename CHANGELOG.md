@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.6.1...code-transformer-bundler-plugins-v0.6.2) (2026-07-15)
+
+
+### Bug Fixes
+
+* Turbopack regex matching ([#34](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/34)) ([9638d14](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/9638d14207eb45b398c4588088f17fd6cc44dcd3))
+
 ## [0.6.1](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.6.0...code-transformer-bundler-plugins-v0.6.1) (2026-07-15)
 
 
