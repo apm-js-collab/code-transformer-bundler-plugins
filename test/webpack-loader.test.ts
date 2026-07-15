@@ -272,6 +272,151 @@ describe('Webpack loader tests', () => {
         });
     });
 
+    // Turbopack serializes loader options across a JS↔Rust boundary, so they
+    // must survive JSON.parse(JSON.stringify(...)). Regex file paths are
+    // passed in their serialized { source, flags } form.
+    it('should transform modules when options are JSON-serialized (Turbopack) with a regex filePath', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const options = JSON.parse(JSON.stringify({
+            instrumentations: [
+                {
+                    ...testCase.instrumentation,
+                    module: {
+                        ...testCase.instrumentation.module,
+                        filePath: { type: 'RegExp', source: 'esmodule\\.js$', flags: '' },
+                    },
+                },
+            ],
+        }));
+
+        const compiler = webpack({
+            mode: 'production',
+            entry: testFile,
+            output: {
+                path: join(fixture.testDir, 'dist'),
+                filename: 'bundle.js'
+            },
+            module: {
+                rules: [
+                    {
+                        test: /\.js$/,
+                        use: {
+                            loader: require.resolve('../dist/cjs/webpack-loader.cjs'),
+                            options
+                        }
+                    }
+                ]
+            },
+            externals: Array.from(builtinModules),
+            optimization: {
+                minimize: false
+            }
+        });
+
+        return new Promise<void>((resolve, reject) => {
+            compiler.run((err, stats) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                if (stats?.hasErrors()) {
+                    reject(new Error(stats.toString()));
+                    return;
+                }
+
+                const outputPath = join(fixture.testDir, 'dist', 'bundle.js');
+
+                let source: string;
+                try {
+                    source = readFileSync(outputPath, 'utf8');
+                } catch (readErr) {
+                    reject(new Error(`Failed to read output file: ${readErr}`));
+                    return;
+                }
+
+                expect(source).toContain('test:esmodule');
+
+                compiler.close(() => {
+                    resolve();
+                });
+            });
+        });
+    });
+
+    it('should transform modules when filePath is a native RegExp', async () => {
+        const testCase = commonTestCases.commonjs;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const compiler = webpack({
+            mode: 'production',
+            entry: testFile,
+            output: {
+                path: join(fixture.testDir, 'dist'),
+                filename: 'bundle.js'
+            },
+            module: {
+                rules: [
+                    {
+                        test: /\.js$/,
+                        use: {
+                            loader: require.resolve('../dist/cjs/webpack-loader.cjs'),
+                            options: {
+                                instrumentations: [
+                                    {
+                                        ...testCase.instrumentation,
+                                        module: {
+                                            ...testCase.instrumentation.module,
+                                            filePath: /commonjs\.js$/,
+                                        },
+                                    },
+                                ]
+                            }
+                        }
+                    }
+                ]
+            },
+            externals: Array.from(builtinModules),
+            optimization: {
+                minimize: false
+            }
+        });
+
+        return new Promise<void>((resolve, reject) => {
+            compiler.run((err, stats) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                if (stats?.hasErrors()) {
+                    reject(new Error(stats.toString()));
+                    return;
+                }
+
+                const outputPath = join(fixture.testDir, 'dist', 'bundle.js');
+
+                let source: string;
+                try {
+                    source = readFileSync(outputPath, 'utf8');
+                } catch (readErr) {
+                    reject(new Error(`Failed to read output file: ${readErr}`));
+                    return;
+                }
+
+                expect(source).toContain('test:commonjs');
+
+                compiler.close(() => {
+                    resolve();
+                });
+            });
+        });
+    });
+
     it('should pass through files that do not match any instrumentation', async () => {
         const testFile = join(fixture.moduleDir, 'no-match.js');
         writeFileSync(testFile, `
