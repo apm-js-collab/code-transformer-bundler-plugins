@@ -254,10 +254,12 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
 }
 
 export type { CustomTransform, InstrumentationConfig, ModuleMatcher, FunctionBehavior, FunctionQuery } from '@apm-js-collab/code-transformer';
-export {
-    serializeInstrumentations,
-    deserializeInstrumentations,
-    type SerializedRegExp,
-    type SerializableInstrumentationConfig,
-    type AnyInstrumentationConfig,
+// Keep type and value exports in separate statements: inline `type` modifiers
+// in a mixed export emit TS 4.5+ syntax into the declarations, which breaks
+// consumers type-checking with older TypeScript.
+export { serializeInstrumentations, deserializeInstrumentations } from './instrumentation-serde';
+export type {
+    SerializedRegExp,
+    SerializableInstrumentationConfig,
+    AnyInstrumentationConfig,
 } from './instrumentation-serde';

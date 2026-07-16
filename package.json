@@ -86,6 +86,17 @@
             "default": "./dist/cjs/webpack-loader.cjs"
         }
     },
+    "typesVersions": {
+        "*": {
+            "core": ["./dist/types/core.d.ts"],
+            "rollup": ["./dist/types/rollup.d.ts"],
+            "webpack": ["./dist/types/webpack.d.ts"],
+            "vite": ["./dist/types/vite.d.ts"],
+            "esbuild": ["./dist/types/esbuild.d.ts"],
+            "bun": ["./dist/types/bun.d.ts"],
+            "webpack-loader": ["./dist/types/webpack-loader.d.ts"]
+        }
+    },
     "files": [
         "dist"
     ],

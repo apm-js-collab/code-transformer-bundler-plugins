@@ -56,6 +56,10 @@ export default defineConfig({
             outDirs: [
                 { dir: 'dist/esm', moduleFormat: 'esm' },
                 { dir: 'dist/cjs', moduleFormat: 'cjs' },
+                // Plain .d.ts copies for consumers on node10 module resolution
+                // (referenced from `typesVersions` in package.json). Old
+                // TypeScript versions cannot parse .d.mts/.d.cts extensions.
+                { dir: 'dist/types' },
             ],
             include: ['src/**/*.ts'],
             entryRoot: 'src',
