@@ -1,6 +1,7 @@
 import { join } from 'path';
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
+import { parse } from 'meriyah';
 
 export interface TestFixture {
     testDir: string;
@@ -38,6 +39,65 @@ export function diagnosticsSnippet(diagnostics: Diagnostics): string {
 /** How many times the diagnostics snippet was injected into `code`. */
 export function countInjections(code: string): number {
     return code.split(DIAGNOSTICS_MARKER).length - 1;
+}
+
+/** A unique token logged by the fixture tracing library, proving its import was bundled. */
+export const INTEGRATION_MARKER = 'INTEGRATION_LIBRARY_MARKER';
+
+export const TRACING_LIBRARY_NAME = 'my-tracing-library';
+
+/**
+ * Creates a `my-tracing-library` package inside the fixture's node_modules for
+ * injected code to import. Returns the absolute path of its entry file, for
+ * bundlers without bare-specifier resolution (plain rollup).
+ */
+export function createTracingLibraryFixture(fixture: TestFixture): string {
+    const dir = join(fixture.testDir, 'node_modules', TRACING_LIBRARY_NAME);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+        join(dir, 'package.json'),
+        JSON.stringify(
+            {
+                name: TRACING_LIBRARY_NAME,
+                version: '1.0.0',
+                type: 'module',
+                main: 'index.js',
+            },
+            null,
+            2,
+        ),
+    );
+
+    const entryFile = join(dir, 'index.js');
+    writeFileSync(
+        entryFile,
+        `export function subscribeTo(name) { console.log('${INTEGRATION_MARKER}', name); }\n`,
+    );
+
+    return entryFile;
+}
+
+/**
+ * A custom transform (orchestrion `addTransform` signature) that injects a
+ * per-module snippet at the top of the matched file's Program, after any
+ * "use strict" directive — the pattern the README documents. One transform
+ * instance serves every injection site by branching on `state.module.name`.
+ */
+export function programInjectionTransform(snippets: Record<string, string>) {
+    return (state: any, node: any): void => {
+        const { module: { name }, moduleType } = state;
+        const snippet = snippets[name];
+
+        // A file can be matched by several configs; only inject once.
+        if (!snippet || node.__integrationInjected) return;
+        node.__integrationInjected = true;
+
+        const statements = parse(snippet, { module: moduleType === 'esm' }).body;
+        const index = node.body.findIndex(
+            (child: any) => child.directive === 'use strict',
+        );
+        node.body.splice(index + 1, 0, ...statements);
+    };
 }
 
 /**

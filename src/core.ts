@@ -1,5 +1,6 @@
 import {
     create,
+    type CustomTransform,
     type InstrumentationConfig,
     type ModuleType,
 } from '@apm-js-collab/code-transformer';
@@ -120,6 +121,18 @@ export interface CodeTransformerPluginOptions {
   /** Optional callback that that injects the code returned */
   injectDiagnostics?: (diagnostics: Diagnostics) => string | undefined;
   /**
+   * Custom transforms registered on the matcher via orchestrion's
+   * `addTransform`. An `InstrumentationConfig` opts in by naming one of these
+   * in its `transform` field; the function is then called for every AST node
+   * matched by that config's `functionQuery`/`astQuery` with
+   * `(state, node, parent, ancestry)`, where `state` is the matched config
+   * spread together with `{ dcModule, moduleType, moduleVersion }`.
+   *
+   * A single transform can serve many configs — each invocation can branch on
+   * `state.module.name` or `state.channelName` to tell the sites apart.
+   */
+  customTransforms?: Record<string, CustomTransform>;
+  /**
    * Restricts which modules the transform hook runs on, via the bundler's hook
    * filter (Rollup >= 4.38, Rolldown, Vite). All built-in instrumentations live
    * within `node_modules`, which is the default. Provide your own matcher to
@@ -175,6 +188,10 @@ function detectModuleType(id: string, code: string): ModuleType {
  */
 export function createCodeTransformer(options: CodeTransformerPluginOptions) {
   const matcher = create(options.instrumentations, options.dcModule ?? null);
+
+  for (const [name, fn] of Object.entries(options.customTransforms ?? {})) {
+    matcher.addTransform(name, fn);
+  }
   const transformedModules = new Set<string>();
   const failedModules = new Set<string>();
 
@@ -236,7 +253,7 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
   return { transform, getCodeToInject };
 }
 
-export type { InstrumentationConfig, ModuleMatcher, FunctionBehavior, FunctionQuery } from '@apm-js-collab/code-transformer';
+export type { CustomTransform, InstrumentationConfig, ModuleMatcher, FunctionBehavior, FunctionQuery } from '@apm-js-collab/code-transformer';
 export {
     serializeInstrumentations,
     deserializeInstrumentations,

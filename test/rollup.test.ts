@@ -7,10 +7,13 @@ import { builtinModules } from 'module';
 import {
     createTestFixture,
     createMultiEntryFixture,
+    createTracingLibraryFixture,
     commonTestCases,
     countInjections,
     diagnosticsSnippet,
     multiEntryInstrumentation,
+    programInjectionTransform,
+    INTEGRATION_MARKER,
     type MultiEntryFixture,
     type TestFixture,
 } from './test-utils.js';
@@ -462,5 +465,60 @@ describe('Rollup injectDiagnostics entry point injection', () => {
         });
 
         expect(plugin.renderChunk).toBeUndefined();
+    });
+});
+
+describe('Rollup customTransforms per-file injection', () => {
+    let fixture: TestFixture;
+
+    beforeEach(() => {
+        fixture = createTestFixture();
+    });
+
+    afterEach(() => {
+        fixture.cleanup();
+    });
+
+    it('should inject a snippet whose import is resolved into the bundle', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        // Plain rollup has no bare-specifier resolution, so the snippet
+        // imports the library entry by absolute path.
+        const libraryEntry = createTracingLibraryFixture(fixture);
+        const snippet = `import { subscribeTo } from ${JSON.stringify(libraryEntry)};\nsubscribeTo('test-module');`;
+
+        const bundle = await rollup({
+            input: testFile,
+            plugins: [
+                codeTransformerPlugin({
+                    instrumentations: [
+                        testCase.instrumentation,
+                        {
+                            channelName: 'integration-injection',
+                            module: testCase.instrumentation.module,
+                            astQuery: 'Program',
+                            transform: 'injectIntegration',
+                        },
+                    ],
+                    customTransforms: {
+                        injectIntegration: programInjectionTransform({
+                            'test-module': snippet,
+                        }),
+                    },
+                }),
+            ],
+            external: (id) => builtinModules.includes(id),
+        });
+
+        const { output } = await bundle.generate({ format: 'es' });
+        const code = output[0].code;
+
+        // The instrumentation itself still applies
+        expect(code).toContain('test:esmodule');
+        // The snippet was injected and its import bundled
+        expect(code).toMatch(/subscribeTo\(["']test-module["']\)/);
+        expect(code).toContain(INTEGRATION_MARKER);
     });
 });
