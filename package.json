@@ -1,6 +1,6 @@
 {
     "name": "@apm-js-collab/code-transformer-bundler-plugins",
-    "version": "0.7.0",
+    "version": "0.7.1",
     "type": "module",
     "description": "A universal plugin that uses '@apm-js-collab/code-transformer' to instrument JavaScript code at build time",
     "keywords": [
@@ -88,13 +88,27 @@
     },
     "typesVersions": {
         "*": {
-            "core": ["./dist/types/core.d.ts"],
-            "rollup": ["./dist/types/rollup.d.ts"],
-            "webpack": ["./dist/types/webpack.d.ts"],
-            "vite": ["./dist/types/vite.d.ts"],
-            "esbuild": ["./dist/types/esbuild.d.ts"],
-            "bun": ["./dist/types/bun.d.ts"],
-            "webpack-loader": ["./dist/types/webpack-loader.d.ts"]
+            "core": [
+                "./dist/types/core.d.ts"
+            ],
+            "rollup": [
+                "./dist/types/rollup.d.ts"
+            ],
+            "webpack": [
+                "./dist/types/webpack.d.ts"
+            ],
+            "vite": [
+                "./dist/types/vite.d.ts"
+            ],
+            "esbuild": [
+                "./dist/types/esbuild.d.ts"
+            ],
+            "bun": [
+                "./dist/types/bun.d.ts"
+            ],
+            "webpack-loader": [
+                "./dist/types/webpack-loader.d.ts"
+            ]
         }
     },
     "files": [

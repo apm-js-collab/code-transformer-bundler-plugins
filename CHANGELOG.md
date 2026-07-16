@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.7.0...code-transformer-bundler-plugins-v0.7.1) (2026-07-16)
+
+
+### Bug Fixes
+
+* Make subpath types resolvable under TypeScript node10 module resolution ([#38](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/38)) ([82d208e](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/82d208e86c8b8d9f15275e1eba50ca061fcc3a60))
+
 ## [0.7.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.6.2...code-transformer-bundler-plugins-v0.7.0) (2026-07-16)
 
 
