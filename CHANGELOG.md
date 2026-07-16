@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.6.2...code-transformer-bundler-plugins-v0.7.0) (2026-07-16)
+
+
+### Features
+
+* Pass though custom transforms ([#36](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/36)) ([fda2c55](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/fda2c5505d1bfca13283468f290af237943983ad))
+
 ## [0.6.2](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.6.1...code-transformer-bundler-plugins-v0.6.2) (2026-07-15)
 
 
