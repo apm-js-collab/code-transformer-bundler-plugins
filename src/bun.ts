@@ -3,7 +3,7 @@ import {
     createCodeTransformer,
     isJsFile,
     type CodeTransformerPluginOptions,
-} from './core';
+} from './core.js';
 import type { Plugin } from 'esbuild';
 
 /**
@@ -117,4 +117,4 @@ export default function codeTransformerBun(
     };
 }
 
-export type { CodeTransformerPluginOptions } from './core';
+export type { CodeTransformerPluginOptions } from './core.js';

@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite';
-import type { CodeTransformerPluginOptions } from './core';
-import codeTransformerRollup from './rollup'; // Ensure rollup types are included for TransformResult
+import type { CodeTransformerPluginOptions } from './core.js';
+import codeTransformerRollup from './rollup.js'; // Ensure rollup types are included for TransformResult
 
 export default function codeTransformerVite(
     options: CodeTransformerPluginOptions,
@@ -11,4 +11,4 @@ export default function codeTransformerVite(
     };
 }
 
-export type { CodeTransformerPluginOptions } from './core';
+export type { CodeTransformerPluginOptions } from './core.js';

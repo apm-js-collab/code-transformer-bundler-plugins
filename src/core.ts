@@ -257,9 +257,9 @@ export type { CustomTransform, InstrumentationConfig, ModuleMatcher, FunctionBeh
 // Keep type and value exports in separate statements: inline `type` modifiers
 // in a mixed export emit TS 4.5+ syntax into the declarations, which breaks
 // consumers type-checking with older TypeScript.
-export { serializeInstrumentations, deserializeInstrumentations } from './instrumentation-serde';
+export { serializeInstrumentations, deserializeInstrumentations } from './instrumentation-serde.js';
 export type {
     SerializedRegExp,
     SerializableInstrumentationConfig,
     AnyInstrumentationConfig,
-} from './instrumentation-serde';
+} from './instrumentation-serde.js';
