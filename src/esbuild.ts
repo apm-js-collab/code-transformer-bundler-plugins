@@ -5,7 +5,7 @@ import {
     createCodeTransformer,
     isJsFile,
     type CodeTransformerPluginOptions,
-} from './core';
+} from './core.js';
 
 const filter = /\.(cjs|mjs|cts|mts|tsx|jsx|ts|js)$/;
 
@@ -170,4 +170,4 @@ export default function codeTransformerEsbuild(
     };
 }
 
-export type { CodeTransformerPluginOptions } from './core';
+export type { CodeTransformerPluginOptions } from './core.js';

@@ -5,7 +5,7 @@ import {
   isJsFile,
   shouldSkipCodeInjection,
   type CodeTransformerPluginOptions,
-} from "./core";
+} from "./core.js";
 import MagicString, { SourceMap } from "magic-string";
 
 export default function codeTransformerRollup(
@@ -124,4 +124,4 @@ export default function codeTransformerRollup(
   };
 }
 
-export type { CodeTransformerPluginOptions } from "./core";
+export type { CodeTransformerPluginOptions } from "./core.js";

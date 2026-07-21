@@ -3,8 +3,8 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import {
     type CodeTransformerPluginOptions,
-} from './core';
-import { serializeInstrumentations } from './instrumentation-serde';
+} from './core.js';
+import { serializeInstrumentations } from './instrumentation-serde.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -121,4 +121,4 @@ export default function codeTransformerWebpack(
     return new CodeTransformerWebpackPlugin(options);
 }
 
-export type { CodeTransformerPluginOptions } from './core';
+export type { CodeTransformerPluginOptions } from './core.js';

@@ -6,7 +6,7 @@ import {
     deserializeInstrumentations,
     serializeInstrumentations,
     type AnyInstrumentationConfig,
-} from './instrumentation-serde';
+} from './instrumentation-serde.js';
 
 // Handle CJS default export - module-details-from-path exports a function directly
 const moduleDetailsFromPath = (moduleDetailsFromPathImport as any).default || moduleDetailsFromPathImport as any;
