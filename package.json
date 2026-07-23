@@ -120,7 +120,7 @@
     "dependencies": {
         "@apm-js-collab/code-transformer": "^0.18.0",
         "es-module-lexer": "^2.1.0",
-        "magic-string": "^0.30.21",
+        "magic-string": "^1.1.0",
         "module-details-from-path": "^1.0.4"
     },
     "devDependencies": {
