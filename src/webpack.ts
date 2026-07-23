@@ -1,6 +1,7 @@
 import type { Compiler } from 'webpack';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { createHash } from 'crypto';
 import {
     type CodeTransformerPluginOptions,
 } from './core.js';
@@ -12,6 +13,67 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // dist/cjs/webpack.cjs → dist/cjs/webpack-loader.cjs
 const LOADER_PATH = resolve(__dirname, '..', 'cjs', 'webpack-loader.cjs');
 const DIAGNOSTICS_STATE_KEY = '__codeTransformerWebpackDiagnostics';
+
+export interface CodeTransformerWebpackPluginOptions extends CodeTransformerPluginOptions {
+    /**
+     * The loader webpack should run, as a resolved path or a specifier
+     * resolvable from the compiler's context. Defaults to this package's own
+     * loader.
+     *
+     * Point this at a loader module built with `createLoader` from the
+     * `/webpack-loader-factory` export when loader options cannot carry
+     * `customTransforms` — under Turbopack, or with worker-based loaders such
+     * as `thread-loader`, which serialize them.
+     */
+    loaderPath?: string;
+    /**
+     * An arbitrary string folded into the loader's cache key, for use with
+     * `cache: { type: 'filesystem' }`.
+     *
+     * The key already covers the instrumentations and the source text of every
+     * custom transform, so editing either invalidates cached modules. What it
+     * cannot see is data a transform reads without naming it — a captured
+     * variable, or a module-scope table of snippets. Bump this when such data
+     * changes, or derive it from the data itself.
+     */
+    cacheVersion?: string;
+}
+
+/**
+ * A stable identity for a set of loader options.
+ *
+ * Webpack keys a loader by its ruleset ident, not by the contents of its
+ * options, so with `cache: { type: 'filesystem' }` a changed config would
+ * otherwise reuse modules built by the previous one. Deriving the ident from
+ * the options makes the module identifier change with them.
+ *
+ * A transform's captured variables are invisible to `toString`, so a factory
+ * that returns textually identical functions for different inputs still hashes
+ * the same. `cacheVersion` is the escape hatch for that; binding the transforms
+ * with `createLoader` is the other, since webpack tracks the loader file's own
+ * contents.
+ */
+function loaderIdent(
+    options: {
+        instrumentations: unknown;
+        dcModule?: string;
+        customTransforms?: Record<string, (...args: any[]) => void>;
+    },
+    cacheVersion?: string,
+): string {
+    const hash = createHash('sha256');
+
+    hash.update(JSON.stringify(options.instrumentations));
+    hash.update(options.dcModule ?? '');
+    hash.update(cacheVersion ?? '');
+
+    for (const name of Object.keys(options.customTransforms ?? {}).sort()) {
+        hash.update(name);
+        hash.update(String(options.customTransforms?.[name]));
+    }
+
+    return `code-transformer-${hash.digest('hex').slice(0, 16)}`;
+}
 
 type DiagnosticsState = {
     transformedModules: Set<string>;
@@ -38,9 +100,9 @@ function entryAssetNames(compilation: any): Set<string> {
 }
 
 class CodeTransformerWebpackPlugin {
-    private readonly options: CodeTransformerPluginOptions;
+    private readonly options: CodeTransformerWebpackPluginOptions;
 
-    constructor(options: CodeTransformerPluginOptions) {
+    constructor(options: CodeTransformerWebpackPluginOptions) {
         this.options = options;
     }
 
@@ -49,19 +111,30 @@ class CodeTransformerWebpackPlugin {
 
         compiler.options.module = compiler.options.module || ({ rules: [] } as any);
         compiler.options.module.rules = compiler.options.module.rules || [];
-        // Pass only what the loader reads, in JSON-serializable form —
-        // callbacks and RegExp instances would break bundlers that serialize
-        // loader options (e.g. Turbopack).
+
+        // Pass only what the loader reads. Webpack hands loader options to the
+        // loader by reference, so `customTransforms` arrives intact; everything
+        // else stays JSON-serializable, keeping the options usable as-is by
+        // bundlers that serialize them (e.g. Turbopack) when no custom
+        // transforms are configured.
+        const loaderOptions = {
+            instrumentations: serializeInstrumentations(this.options.instrumentations),
+            ...(this.options.dcModule ? { dcModule: this.options.dcModule } : {}),
+            ...(this.options.customTransforms
+                ? { customTransforms: this.options.customTransforms }
+                : {}),
+        };
+
         compiler.options.module.rules.unshift({
             test: /\.(c|m)?jsx?$|\.tsx?$/,
             enforce: 'pre',
             use: [
                 {
-                    loader: LOADER_PATH,
-                    options: {
-                        instrumentations: serializeInstrumentations(this.options.instrumentations),
-                        ...(this.options.dcModule ? { dcModule: this.options.dcModule } : {}),
-                    },
+                    loader: this.options.loaderPath ?? LOADER_PATH,
+                    options: loaderOptions,
+                    // Without this webpack derives the ident from the rule's
+                    // position, so a persistent cache survives a config change.
+                    ident: loaderIdent(loaderOptions, this.options.cacheVersion),
                 },
             ],
         });
@@ -116,7 +189,7 @@ class CodeTransformerWebpackPlugin {
 }
 
 export default function codeTransformerWebpack(
-    options: CodeTransformerPluginOptions,
+    options: CodeTransformerWebpackPluginOptions,
 ): CodeTransformerWebpackPlugin {
     return new CodeTransformerWebpackPlugin(options);
 }

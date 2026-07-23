@@ -67,5 +67,36 @@ describe('package.json exports', () => {
             expect(stderr).toBe('');
             expect(status).toBe(0);
         });
+
+        // Unlike the loader itself, the factory is a normal module with a named
+        // export — a wrapper loader requires it and calls `createLoader`.
+        const check = `
+            if (typeof createLoader !== 'function') {
+                console.error('expected createLoader to be a function, got ' + typeof createLoader);
+                process.exit(2);
+            }
+            if (typeof createLoader({}) !== 'function') {
+                console.error('expected createLoader() to return a loader function');
+                process.exit(2);
+            }
+        `;
+
+        it(`import '${pkg.name}/webpack-loader-factory' (ESM) exposes createLoader`, () => {
+            const { status, stderr } = runNode(
+                'module',
+                `import { createLoader } from '${pkg.name}/webpack-loader-factory';\n${check}`,
+            );
+            expect(stderr).toBe('');
+            expect(status).toBe(0);
+        });
+
+        it(`require '${pkg.name}/webpack-loader-factory' (CJS) exposes createLoader`, () => {
+            const { status, stderr } = runNode(
+                'commonjs',
+                `const { createLoader } = require('${pkg.name}/webpack-loader-factory');\n${check}`,
+            );
+            expect(stderr).toBe('');
+            expect(status).toBe(0);
+        });
     });
 });

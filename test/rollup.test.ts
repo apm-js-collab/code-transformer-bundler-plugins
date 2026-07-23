@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, inject } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, inject, vi } from 'vitest';
 import codeTransformerPlugin from '../dist/esm/rollup.mjs';
 import { rollup } from 'rollup';
 import { join } from 'path';
@@ -13,6 +13,8 @@ import {
     diagnosticsSnippet,
     multiEntryInstrumentation,
     programInjectionTransform,
+    tracingChannelImportOverride,
+    twoChannelTestCase,
     INTEGRATION_MARKER,
     type MultiEntryFixture,
     type TestFixture,
@@ -520,5 +522,88 @@ describe('Rollup customTransforms per-file injection', () => {
         // The snippet was injected and its import bundled
         expect(code).toMatch(/subscribeTo\(["']test-module["']\)/);
         expect(code).toContain(INTEGRATION_MARKER);
+    });
+});
+
+describe('Rollup tracingChannelImport override', () => {
+    let fixture: TestFixture;
+
+    beforeEach(() => {
+        fixture = createTestFixture();
+    });
+
+    afterEach(() => {
+        fixture.cleanup();
+    });
+
+    async function bundleWithOverride(
+        input: string,
+        instrumentations: unknown[],
+    ): Promise<string> {
+        // Plain rollup has no bare-specifier resolution, so the snippet
+        // imports the library entry by absolute path.
+        const libraryEntry = createTracingLibraryFixture(fixture);
+        const snippet = `import { subscribeTo } from ${JSON.stringify(libraryEntry)};\nsubscribeTo('test-module');`;
+
+        const bundle = await rollup({
+            input,
+            plugins: [
+                codeTransformerPlugin({
+                    instrumentations: instrumentations as never,
+                    customTransforms: {
+                        tracingChannelImport: tracingChannelImportOverride({
+                            'test-module': snippet,
+                        }),
+                    },
+                }),
+            ],
+            external: (id) => builtinModules.includes(id),
+        });
+
+        const { output } = await bundle.generate({ format: 'es' });
+        return output[0].code;
+    }
+
+    it('should inject once for a file whose channel is set up twice', async () => {
+        const testCase = twoChannelTestCase;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const code = await bundleWithOverride(testFile, testCase.instrumentations);
+
+        // Both instrumentations applied, and the built-in transform still ran
+        expect(code).toContain('test:alpha');
+        expect(code).toContain('test:beta');
+        expect(code).toContain('tr_ch_apm_tracingChannel');
+
+        // One injection despite the override being called once per channel
+        expect(code.match(/subscribeTo\(["']test-module["']\)/g)).toHaveLength(1);
+        expect(code).toContain(INTEGRATION_MARKER);
+    });
+
+    // The reason to override this transform rather than add a `Program` config,
+    // which would match every file the module matcher does.
+    it('should not inject into a file where nothing was instrumented', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const code = await bundleWithOverride(testFile, [
+            {
+                ...testCase.instrumentation,
+                functionQuery: { functionName: 'doesNotExist', kind: 'Async' },
+            },
+        ]);
+
+        expect(code).not.toContain('subscribeTo');
+        expect(code).not.toContain(INTEGRATION_MARKER);
+        // The file still fails as it normally would
+        expect(warn).toHaveBeenCalledWith(
+            expect.stringContaining('Code transformation failed'),
+            expect.anything(),
+        );
+
+        warn.mockRestore();
     });
 });
