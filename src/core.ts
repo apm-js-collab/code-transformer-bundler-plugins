@@ -1,9 +1,5 @@
-import {
-    create,
-    type CustomTransform,
-    type InstrumentationConfig,
-    type ModuleType,
-} from '@apm-js-collab/code-transformer';
+import { create } from '@apm-js-collab/code-transformer';
+import type { CustomTransform, InstrumentationConfig, ModuleType } from '@apm-js-collab/code-transformer';
 import { extname, join } from 'path';
 import { readFileSync } from 'fs';
 import moduleDetailsFromPath from 'module-details-from-path';
