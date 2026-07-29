@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.4](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.7.3...code-transformer-bundler-plugins-v0.7.4) (2026-07-29)
+
+
+### Bug Fixes
+
+* Passing custom transforms to {web,turbo}pack ([#44](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/44)) ([e720adc](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/e720adc402fcc3f0a57f6c2068c740b90a95792e))
+
 ## [0.7.3](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.7.2...code-transformer-bundler-plugins-v0.7.3) (2026-07-27)
 
 

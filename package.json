@@ -1,6 +1,6 @@
 {
     "name": "@apm-js-collab/code-transformer-bundler-plugins",
-    "version": "0.7.3",
+    "version": "0.7.4",
     "type": "module",
     "description": "A universal plugin that uses '@apm-js-collab/code-transformer' to instrument JavaScript code at build time",
     "keywords": [
