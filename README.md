@@ -156,21 +156,27 @@ $ bun run --import=./plugin.ts app.ts
 | `injectDiagnostics` | `(diagnostics) => string?` | Called after the build with `{ transformedModules, failedModules }`; the returned code is prepended to every entry point bundle. The code is injected after bundling, so it must not contain `import`/`require`. |
 | `transformFilter` | `TransformIdFilter \| false` | Restricts which module ids the transform hook runs on (default `/node_modules/`). Supported by bundlers with hook filters (Rollup ≥ 4.38, Rolldown, Vite). |
 | `customTransforms` | `Record<string, CustomTransform>` | Custom transforms registered on the matcher via orchestrion's `addTransform`. See below. |
+| `loaderPath` | `string?` | Webpack only. The loader to run instead of this package's own, for wrapping it with transforms bound at require time. See below. |
+| `cacheVersion` | `string?` | Webpack only. Folded into the loader's cache key. Bump it when a transform's behaviour changes in a way its source text does not show. See below. |
 
 ## Custom transforms: injecting code into instrumented files
 
-An `InstrumentationConfig` can name a custom transform in its `transform`
-field. The function is called for every AST node matched by that config's
-`functionQuery`/`astQuery` as `(state, node, parent, ancestry)`, where `state`
-is the matched config spread together with
-`{ dcModule, moduleType, moduleVersion }`.
+`customTransforms` registers transforms on the matcher under a name. A name
+that an `InstrumentationConfig` opts into through its `transform` field runs
+for the nodes that config matches; a name that collides with one of
+orchestrion's built-ins overrides that built-in everywhere, including where
+orchestrion calls it internally. Either way the function receives
+`(state, node, parent, ancestry)`, where `state` is the matched config spread
+together with `{ dcModule, moduleType, moduleVersion, transforms }`.
 
-This can be used to inject code — including `import`/`require` statements —
-into the files being instrumented. Because the injection happens during the
-transform, the bundler resolves and bundles whatever the injected code
-imports, and the code is only included when the instrumented package is
-actually part of the build. A single transform can serve every injection site
-by branching on `state.module.name`:
+Overriding `tracingChannelImport` is the way to inject code — including
+`import`/`require` statements — into the files being instrumented. Orchestrion
+calls it when it sets up a file's diagnostics channel, so it runs exactly when
+a function was really wrapped. Because the injection happens during the
+transform, the bundler resolves and bundles whatever the injected code imports,
+and the code is only included when the instrumented package is actually part of
+the build. A single transform can serve every injection site by branching on
+`state.module.name`:
 
 ```javascript
 import { parse } from "meriyah";
@@ -181,59 +187,165 @@ const INTEGRATIONS = {
 subscribeToMysql();`,
 };
 
+// Marks the statement orchestrion's built-in adds, which is both what tells us
+// the import is in place and where we want our own code to go.
+const isTracingChannelImport = (node) =>
+  node.declarations?.[0]?.id?.properties?.[0]?.value?.name ===
+  "tr_ch_apm_tracingChannel";
+
 // One transform handles every injection site; `state` identifies the site.
 function injectIntegration(state, program) {
-  const { module: { name }, moduleType } = state;
-  const snippet = INTEGRATIONS[name];
+  // Run the built-in first: it adds the diagnostics_channel import our code is
+  // placed after, and orchestrion still needs it to declare the channel.
+  state.transforms.defaults.tracingChannelImport(state, program);
+
+  const snippet = INTEGRATIONS[state.module.name];
   if (!snippet) return;
 
-  // A file can be matched by several configs; only inject once.
+  // Called once per channel, so a file with several instrumented functions
+  // arrives here more than once.
   if (program.__integrationInjected) return;
   program.__integrationInjected = true;
 
-  const statements = parse(snippet, { module: moduleType === "esm" }).body;
-  // Insert after any "use strict" directive, like orchestrion's built-ins.
-  const index = program.body.findIndex((node) => node.directive === "use strict");
-  program.body.splice(index + 1, 0, ...statements);
+  const statements = parse(snippet, { module: state.moduleType === "esm" }).body;
+  program.body.splice(
+    program.body.findIndex(isTracingChannelImport) + 1,
+    0,
+    ...statements,
+  );
 }
-
-const mysqlMatcher = {
-  name: "mysql",
-  versionRange: ">=2.0.0",
-  filePath: "lib/connection.js",
-};
 
 codeTransformer({
   instrumentations: [
-    // The real instrumentation
     {
       channelName: "mysql:query",
-      module: mysqlMatcher,
+      module: {
+        name: "mysql",
+        versionRange: ">=2.0.0",
+        filePath: "lib/connection.js",
+      },
       functionQuery: { methodName: "query", kind: "Callback" },
     },
-    // The injection site: same module matcher, Program node, custom transform
-    {
-      channelName: "integration-injection",
-      module: mysqlMatcher,
-      astQuery: "Program",
-      transform: "injectIntegration",
-    },
   ],
-  customTransforms: { injectIntegration },
+  // Overrides orchestrion's built-in of the same name.
+  customTransforms: { tracingChannelImport: injectIntegration },
 });
 ```
 
 Things to be aware of:
 
-- A `Program` config matches whenever the *file* matches the module matcher,
-  so the injection also happens if a sibling function query found nothing in
-  that file. To gate on "a function was actually wrapped", order the injection
-  config last and check the program for orchestrion's channel setup:
-  `program.body.some((n) => n.declarations?.[0]?.id?.properties?.[0]?.value?.name === "tr_ch_apm_tracingChannel")`.
-- Because the always-matching `Program` config counts as an injection point,
-  orchestrion's "Failed to find injection points" error is suppressed for that
-  file, so such modules will not appear in `injectDiagnostics`'s
+- The override replaces the built-in, so it has to call the original. Skipping
+  it leaves the file without its `diagnostics_channel` import, and the channel
+  declaration orchestrion appends next will reference an undefined variable.
+- Orchestrion invokes it once per channel rather than once per file, so a file
+  with several instrumented functions needs the dedupe flag above. The built-in
+  is idempotent and can be called every time.
+- Nothing is injected into a file whose instrumentation found no functions to
+  wrap, which is the point of overriding this transform rather than adding a
+  `Program` config that matches every file the module matcher does. Such a file
+  still fails as it normally would, and still appears in `injectDiagnostics`'s
   `failedModules`.
+- This requires `@apm-js-collab/code-transformer` >= 0.18.1, where internal
+  calls to built-in transforms dispatch through the override map and
+  `state.transforms.defaults` exposes the originals.
 - Custom transforms mutate ESTree nodes. Parse code snippets with
   [`meriyah`](https://github.com/meriyah/meriyah) (orchestrion's own parser)
   so the resulting AST round-trips through code generation.
+- Under webpack, a transform that reads data it does not name — a captured
+  variable, or a module-scope table of snippets — needs `cacheVersion` to
+  invalidate a filesystem cache. See below.
+
+### Custom transforms with Webpack
+
+`customTransforms` works with the webpack plugin as it does everywhere else.
+The plugin instruments through a loader, and webpack hands loader options to
+the loader by reference, so the functions arrive intact.
+
+One thing to know if you use `cache: { type: 'filesystem' }`. Webpack keys a
+loader by its ruleset ident rather than by the contents of its options, so a
+changed config would ordinarily go unnoticed and cached modules would be reused.
+The plugin therefore derives the ident from the config itself: the
+instrumentations, `dcModule`, and the source text of every custom transform.
+Editing any of those rebuilds the affected modules.
+
+What the ident cannot see is data a transform reads without naming it, because
+`Function.prototype.toString` does not capture it:
+
+```javascript
+const INTEGRATIONS = { mysql: "..." }; // editing this does not change the source
+
+function injectIntegration(state, program) {
+  const snippet = INTEGRATIONS[state.module.name];
+  // ...
+}
+```
+
+Set `cacheVersion` when that data changes — derived from the data itself, or
+from your package's version:
+
+```javascript
+codeTransformer({
+  instrumentations: [
+    /* ... */
+  ],
+  customTransforms: { tracingChannelImport: injectIntegration },
+  cacheVersion: require("./package.json").version,
+});
+```
+
+### Custom transforms with Turbopack
+
+Turbopack serializes loader options as JSON, so functions cannot reach the
+loader through them; the same applies to loaders that run in worker processes,
+such as `thread-loader`. For those, ship a loader of your own with the
+transforms already bound. They then live in that module's scope inside the
+loader process and never cross a serialization boundary — only the JSON-safe
+`instrumentations` do. Webpack also tracks the loader file's own contents, so
+editing a transform there invalidates cached modules without `cacheVersion`.
+
+```javascript
+// my-library/loader.cjs
+const {
+  createLoader,
+} = require("@apm-js-collab/code-transformer-bundler-plugins/webpack-loader-factory");
+const { injectIntegration } = require("./transforms.cjs");
+
+module.exports = createLoader({
+  customTransforms: { tracingChannelImport: injectIntegration },
+  // Optional: bake in the instrumentations too, so callers pass no options at
+  // all. Per-rule loader options override these when present.
+  // instrumentations: [...],
+});
+```
+
+Point webpack at it with the plugin's `loaderPath`, which keeps
+`injectDiagnostics` working:
+
+```javascript
+codeTransformer({
+  loaderPath: require.resolve("my-library/loader.cjs"),
+  instrumentations: [
+    /* ... */
+  ],
+});
+```
+
+Or register it directly, which is what Turbopack needs:
+
+```javascript
+// next.config.js
+module.exports = {
+  turbopack: {
+    rules: {
+      "**/*.{js,cjs,mjs}": {
+        loaders: [
+          {
+            loader: "my-library/loader.cjs",
+            options: { instrumentations: serializeInstrumentations(configs) },
+          },
+        ],
+      },
+    },
+  },
+};
+```
