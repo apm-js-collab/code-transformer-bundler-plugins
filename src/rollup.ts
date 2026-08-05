@@ -6,7 +6,7 @@ import {
   shouldSkipCodeInjection,
   type CodeTransformerPluginOptions,
 } from "./core.js";
-import MagicString, { SourceMap } from "magic-string";
+import MagicString from "magic-string";
 
 export default function codeTransformerRollup(
   options: CodeTransformerPluginOptions,
@@ -27,7 +27,7 @@ export default function codeTransformerRollup(
     meta?: { magicString?: MagicString, chunks: unknown },
   ): {
     code: string;
-    map?: SourceMap;
+    map?: string;
   } | null => {
     if (!isJsFile(chunk.fileName)) {
       return null; // returning null means not modifying the chunk at all
@@ -74,10 +74,12 @@ export default function codeTransformerRollup(
 
     return {
       code: ms.toString(),
-      map: ms.generateMap({
-        file: chunk.fileName,
-        hires: "boundary" as unknown as undefined,
-      }),
+      map: ms
+        .generateMap({
+          file: chunk.fileName,
+          hires: "boundary" as unknown as undefined,
+        })
+        .toString(),
     };
   };
 
