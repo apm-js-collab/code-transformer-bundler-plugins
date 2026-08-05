@@ -12,6 +12,7 @@ const entries = {
     esbuild: 'src/esbuild.ts',
     bun: 'src/bun.ts',
     'webpack-loader': 'src/webpack-loader.ts',
+    'webpack-loader-factory': 'src/webpack-loader-factory.ts',
 };
 
 /**

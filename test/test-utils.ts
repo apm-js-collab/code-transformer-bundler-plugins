@@ -101,6 +101,53 @@ export function programInjectionTransform(snippets: Record<string, string>) {
 }
 
 /**
+ * A custom transform that overrides orchestrion's built-in
+ * `tracingChannelImport` — the pattern the README documents. Orchestrion calls
+ * it while setting up a file's diagnostics channel, so it only runs for files
+ * where a function was really wrapped, and once per channel rather than once
+ * per file.
+ */
+export function tracingChannelImportOverride(snippets: Record<string, string>) {
+    return (state: any, program: any): void => {
+        // The built-in adds the diagnostics_channel import that the channel
+        // declaration orchestrion appends next depends on.
+        state.transforms.defaults.tracingChannelImport(state, program);
+
+        const snippet = snippets[state.module.name];
+
+        if (!snippet || program.__integrationInjected) return;
+        program.__integrationInjected = true;
+
+        const statements = parse(snippet, { module: state.moduleType === 'esm' }).body;
+        const index = program.body.findIndex(
+            (node: any) =>
+                node.declarations?.[0]?.id?.properties?.[0]?.value?.name ===
+                'tr_ch_apm_tracingChannel',
+        );
+
+        program.body.splice(index + 1, 0, ...statements);
+    };
+}
+
+/** Two instrumented functions in one file, so its channel is set up twice. */
+export const twoChannelTestCase = {
+    filename: 'two-channels.js',
+    code: `
+export async function alpha() { return 1; }
+export async function beta() { return 2; }
+`,
+    instrumentations: ['alpha', 'beta'].map((fn) => ({
+        channelName: `test:${fn}`,
+        module: {
+            name: 'test-module',
+            versionRange: '>=1.0.0' as any,
+            filePath: 'two-channels.js',
+        },
+        functionQuery: { functionName: fn, kind: 'Async' as const },
+    })),
+};
+
+/**
  * A two-entry app that also produces non-entry chunks: `shared.js` is imported
  * by both entries and `lazy.js` is only reachable through a dynamic import.
  * Both entries pull in the instrumented `test-module` so that the diagnostics

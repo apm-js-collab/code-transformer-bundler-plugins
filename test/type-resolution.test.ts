@@ -26,7 +26,16 @@ const root = join(__dirname, '..');
 const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc');
 
 const PKG = '@apm-js-collab/code-transformer-bundler-plugins';
-const ALL_SUBPATHS = ['core', 'rollup', 'webpack', 'vite', 'esbuild', 'bun', 'webpack-loader'] as const;
+const ALL_SUBPATHS = [
+    'core',
+    'rollup',
+    'webpack',
+    'vite',
+    'esbuild',
+    'bun',
+    'webpack-loader',
+    'webpack-loader-factory',
+] as const;
 
 // `vite` ships `exports`-only type declarations that legacy `node10` resolution
 // cannot follow, so the `/vite` subpath's peer types are unresolvable there —
@@ -116,6 +125,10 @@ afterAll(() => {
 });
 
 describe('published type declarations resolve for consumers', () => {
+    // Each mode spawns a full `tsc` over every subpath with `skipLibCheck`
+    // off, which takes several seconds — well past vitest's default timeout.
+    const TSC_TIMEOUT_MS = 60_000;
+
     it.each(modes)('$name: every subpath type-checks cleanly', (mode) => {
         const source = consumerFor(mode.subpaths);
         for (const file of mode.files) writeFileSync(join(fixture, file), source);
@@ -137,5 +150,5 @@ describe('published type declarations resolve for consumers', () => {
         if (/error TS510[78]|moduleResolution.*removed/.test(output)) return;
 
         expect(status, output).toBe(0);
-    });
+    }, TSC_TIMEOUT_MS);
 });
