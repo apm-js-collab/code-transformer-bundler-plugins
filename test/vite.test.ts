@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import codeTransformerPlugin from '../dist/esm/vite.mjs';
 import { build } from 'vite';
-import { join } from 'path';
-import { writeFileSync, mkdirSync } from 'fs';
+import { dirname, join, resolve } from 'path';
+import { writeFileSync, mkdirSync, realpathSync } from 'fs';
 import {
     createTestFixture,
     createMultiEntryFixture,
@@ -258,6 +258,39 @@ export function testFunction() {
                 expect(chunk.map?.sources.some(s => s?.includes('esmodule.js'))).toBe(true);
             }
         }
+    });
+
+    it('should point the sourcemap at the real file and embed its content', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const result = await build({
+            root: fixture.testDir,
+            logLevel: 'silent',
+            build: {
+                write: false,
+                sourcemap: true,
+                rollupOptions: {
+                    input: testFile,
+                    external: Array.from(builtinModules)
+                }
+            },
+            plugins: [codeTransformerPlugin({ instrumentations: [testCase.instrumentation] })]
+        });
+
+        if (!('output' in result)) {
+            throw new Error('expected a rollup output');
+        }
+
+        const chunk = result.output.find(o => o.type === 'chunk');
+        if (chunk?.type !== 'chunk' || !chunk.map) {
+            throw new Error('expected a chunk with a sourcemap');
+        }
+
+        const outDir = resolve(fixture.testDir, 'dist', dirname(chunk.fileName));
+        expect(chunk.map.sources.map(s => resolve(outDir, s))).toEqual([realpathSync(testFile)]);
+        expect(chunk.map.sourcesContent).toEqual([testCase.code]);
     });
 
     it('should chain sourcemaps from a prior transform plugin', async () => {

@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@apm-js-collab/code-transformer@^0.18.1":
-  version "0.18.1"
-  resolved "https://registry.yarnpkg.com/@apm-js-collab/code-transformer/-/code-transformer-0.18.1.tgz#66ce01cfe9607779b4abebb4f54c49a46e8b48ca"
-  integrity sha512-u1Hb6bHjWtkSpiprwVP6YaHC1DTN4RAU3zYkUDUe7WMnJwdyU1pwTL9dFKiSJB9IiLue/EQovmyx6xhU7FFtAQ==
+"@apm-js-collab/code-transformer@^0.19.0":
+  version "0.19.0"
+  resolved "https://registry.yarnpkg.com/@apm-js-collab/code-transformer/-/code-transformer-0.19.0.tgz#5259b3fe29ab30455ec4b64b202a4626a13f5b05"
+  integrity sha512-KGR8dyF4L5dIbnfW2a7n3WQiUxIvR+Zs5IPVXJKNL6XVR9oWR9lm6N/AQXtnimiUDiURlwrZOIlpbGgQ3hU6yQ==
   dependencies:
     "@types/estree" "^1.0.8"
     astring "^1.9.0"

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import codeTransformerPlugin from '../dist/esm/webpack.mjs';
 import webpack from 'webpack';
 import { join } from 'path';
-import { writeFileSync, readFileSync, readdirSync } from 'fs';
+import { writeFileSync, readFileSync, readdirSync, realpathSync } from 'fs';
 import {
     createTestFixture,
     createMultiEntryFixture,
@@ -131,6 +131,41 @@ describe('Webpack integration tests', () => {
                 });
             });
         });
+    });
+
+    it('should point the sourcemap at the real file and embed its content', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const compiler = webpack({
+            mode: 'production',
+            context: realpathSync(fixture.testDir),
+            entry: testFile,
+            devtool: 'source-map',
+            output: {
+                path: join(fixture.testDir, 'dist'),
+                filename: 'bundle.js'
+            },
+            plugins: [codeTransformerPlugin({ instrumentations: [testCase.instrumentation] })],
+            externals: Array.from(builtinModules),
+            optimization: {
+                minimize: false
+            }
+        });
+
+        await new Promise<void>((resolve, reject) => {
+            compiler.run((err, stats) => {
+                if (err) return reject(err);
+                if (stats?.hasErrors()) return reject(new Error(stats.toString()));
+                compiler.close(() => resolve());
+            });
+        });
+
+        const map = JSON.parse(readFileSync(join(fixture.testDir, 'dist', 'bundle.js.map'), 'utf8'));
+        const moduleSources = map.sources.filter((s: string) => s.includes('esmodule.js'));
+        expect(moduleSources).toEqual(['webpack:///./node_modules/test-module/esmodule.js']);
+        expect(map.sourcesContent[map.sources.indexOf(moduleSources[0])]).toBe(testCase.code);
     });
 
     it('should inject diagnostics code with webpack', async () => {

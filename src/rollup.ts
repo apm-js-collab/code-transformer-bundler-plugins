@@ -1,4 +1,4 @@
-import type { OutputOptions, Plugin, TransformPluginContext } from "rollup";
+import type { Plugin } from "rollup";
 import {
   COMMENT_USE_STRICT_REGEX,
   createCodeTransformer,
@@ -13,12 +13,6 @@ export default function codeTransformerRollup(
 ): Plugin {
   const { transform: transformCode, getCodeToInject } =
     createCodeTransformer(options);
-  
-  let sourcemapsEnabled = false;
-  
-  const outputOptions = (inputOptions: OutputOptions) => {
-    sourcemapsEnabled = !!inputOptions.sourcemap; 
-  };
 
   const renderChunk = (
     code: string,
@@ -81,15 +75,10 @@ export default function codeTransformerRollup(
     };
   };
 
-  function transformHandler(
-    this: TransformPluginContext,
-    code: string,
-    id: string,
-  ) {
-    const inputSourceMap = sourcemapsEnabled
-      ? this.getCombinedSourcemap()
-      : undefined;
-    const result = transformCode(code, id, inputSourceMap);
+  // The returned map only covers this transform. The bundler chains it with the maps of earlier
+  // transforms, so we must not pass those in.
+  function transformHandler(code: string, id: string) {
+    const result = transformCode(code, id);
     if (!result) return null;
     return { code: result.code, map: result.map ?? null };
   }
@@ -111,14 +100,12 @@ export default function codeTransformerRollup(
   if (!options.injectDiagnostics) {
     return {
       name,
-      outputOptions,
       transform,
     };
   }
 
   return {
     name,
-    outputOptions,
     transform,
     renderChunk,
   };

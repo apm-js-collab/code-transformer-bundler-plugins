@@ -236,6 +236,7 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
         code,
         moduleType,
         inputSourceMap ?? null,
+        { sourceFile: stripQueryAndHashFromPath(id) },
       );
       transformedModules.add(transformer.moduleName);
       return { code: result.code, map: result.map };

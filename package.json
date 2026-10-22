@@ -131,7 +131,7 @@
         "access": "public"
     },
     "dependencies": {
-        "@apm-js-collab/code-transformer": "^0.18.1",
+        "@apm-js-collab/code-transformer": "^0.19.0",
         "es-module-lexer": "^2.1.0",
         "magic-string": "^0.30.21",
         "module-details-from-path": "^1.0.4"

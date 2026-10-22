@@ -240,7 +240,7 @@ export function createLoader(
 
         try {
             // Transform the code
-            const result = transformer.transform(code, moduleType, inputSourceMap);
+            const result = transformer.transform(code, moduleType, inputSourceMap, { sourceFile: resourcePath });
             const diagnosticsState = getDiagnosticsState(this);
 
             diagnosticsState?.transformedModules.add(transformer.moduleName);
