@@ -16,9 +16,13 @@ export default function codeTransformerRollup(
 
   const renderChunk = (
     code: string,
-    chunk: { fileName: string; facadeModuleId?: string | null; isEntry?: boolean },
+    chunk: {
+      fileName: string;
+      facadeModuleId?: string | null;
+      isEntry?: boolean;
+    },
     _?: unknown,
-    meta?: { magicString?: MagicString, chunks: unknown },
+    meta?: { magicString?: MagicString; chunks: unknown },
   ): {
     code: string;
     map?: SourceMap;
@@ -75,8 +79,6 @@ export default function codeTransformerRollup(
     };
   };
 
-  // The returned map only covers this transform. The bundler chains it with the maps of earlier
-  // transforms, so we must not pass those in.
   function transformHandler(code: string, id: string) {
     const result = transformCode(code, id);
     if (!result) return null;
@@ -89,7 +91,9 @@ export default function codeTransformerRollup(
   // module in the user's own source. Bundlers without filter support ignore
   // `filter` and call the handler for all modules, where core bails out.
   const idFilter =
-    options.transformFilter === undefined ? /node_modules/ : options.transformFilter;
+    options.transformFilter === undefined
+      ? /node_modules/
+      : options.transformFilter;
   const transform: Plugin["transform"] =
     idFilter === false
       ? transformHandler
