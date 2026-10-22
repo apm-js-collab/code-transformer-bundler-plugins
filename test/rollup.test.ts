@@ -15,6 +15,8 @@ import {
     programInjectionTransform,
     tracingChannelImportOverride,
     twoChannelTestCase,
+    linePrependingPlugin,
+    originalPositionOf,
     INTEGRATION_MARKER,
     type MultiEntryFixture,
     type TestFixture,
@@ -121,6 +123,34 @@ describe('Rollup integration tests', () => {
         expect(result.code).toBeDefined();
         expect(typeof result.code).toBe('string');
         expect(result.code).toContain('test:esmodule');
+    });
+
+    it('should keep sourcemaps correct when the plugin instance is reused across builds', async () => {
+        const testCase = commonTestCases.esmodule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        // Watch mode and multi-build setups (e.g. SvelteKit's client and server
+        // builds) run the same plugin instance more than once
+        const plugin = codeTransformerPlugin({
+            instrumentations: [testCase.instrumentation]
+        });
+
+        for (let build = 0; build < 2; build++) {
+            const bundle = await rollup({
+                input: testFile,
+                plugins: [linePrependingPlugin(testCase.filename), plugin],
+                external: (id) => builtinModules.includes(id)
+            });
+
+            const { output } = await bundle.generate({ format: 'es', sourcemap: true });
+            const result = output[0];
+
+            expect(result.map).toBeDefined();
+            const position = originalPositionOf(result.code, result.map!, 'Promise.resolve(42)');
+            expect(position.source).toMatch(/node_modules\/test-module\/esmodule\.js$/);
+            expect(position.line).toBe(5);
+        }
     });
 
     it('should handle .mjs files as ES modules', async () => {

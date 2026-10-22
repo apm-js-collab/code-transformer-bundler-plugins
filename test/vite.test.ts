@@ -12,13 +12,14 @@ import {
     diagnosticsSnippet,
     multiEntryInstrumentation,
     programInjectionTransform,
+    linePrependingPlugin,
+    originalPositionOf,
     INTEGRATION_MARKER,
     TRACING_LIBRARY_NAME,
     type MultiEntryFixture,
     type TestFixture,
 } from './test-utils.js';
 import { builtinModules } from 'module';
-import MagicString from 'magic-string';
 
 describe('Vite integration tests', () => {
     let fixture: TestFixture;
@@ -273,10 +274,15 @@ export function testFunction() {
                 sourcemap: true,
                 rollupOptions: {
                     input: testFile,
+                    // Keep the entry's exports so testFunction's body survives tree-shaking
+                    preserveEntrySignatures: 'strict',
                     external: Array.from(builtinModules)
                 }
             },
-            plugins: [codeTransformerPlugin({ instrumentations: [testCase.instrumentation] })]
+            plugins: [
+                linePrependingPlugin(testCase.filename),
+                codeTransformerPlugin({ instrumentations: [testCase.instrumentation] })
+            ]
         });
 
         if (!('output' in result)) {
@@ -291,24 +297,18 @@ export function testFunction() {
         const outDir = resolve(fixture.testDir, 'dist', dirname(chunk.fileName));
         expect(chunk.map.sources.map(s => resolve(outDir, s))).toEqual([realpathSync(testFile)]);
         expect(chunk.map.sourcesContent).toEqual([testCase.code]);
+
+        // Fed the combined sourcemap, the transformer applied the prior plugin's
+        // map a second time and the instrumented code mapped to nothing
+        const position = originalPositionOf(chunk.code, chunk.map, 'Promise.resolve(42)');
+        expect(position.source && resolve(outDir, position.source)).toBe(realpathSync(testFile));
+        expect(position.line).toBe(5);
     });
 
     it('should chain sourcemaps from a prior transform plugin', async () => {
         const testCase = commonTestCases.esmodule;
         const testFile = join(fixture.moduleDir, testCase.filename);
         writeFileSync(testFile, testCase.code);
-
-        // Runs before code-transformer (same enforce tier, listed first) and shifts line numbers
-        const priorTransformPlugin = {
-            name: 'prior-transform',
-            enforce: 'pre',
-            transform(code: string, id: string) {
-                if (!id.includes('esmodule.js')) return null;
-                const ms = new MagicString(code);
-                ms.prepend('// inserted by prior transform\n');
-                return { code: ms.toString(), map: ms.generateMap({ hires: true, source: id }) };
-            }
-        };
 
         const plugin = codeTransformerPlugin({
             instrumentations: [testCase.instrumentation]
@@ -321,10 +321,12 @@ export function testFunction() {
                 sourcemap: true,
                 rollupOptions: {
                     input: testFile,
+                    // Keep the entry's exports so testFunction's body survives tree-shaking
+                    preserveEntrySignatures: 'strict',
                     external: Array.from(builtinModules)
                 }
             },
-            plugins: [priorTransformPlugin, plugin]
+            plugins: [linePrependingPlugin(testCase.filename), plugin]
         });
 
         expect(result).toBeDefined();
@@ -335,7 +337,9 @@ export function testFunction() {
                 expect(chunk.code).toContain('test:esmodule');
                 // Sourcemap must chain back to the original file, not the intermediate output
                 expect(chunk.map).toBeDefined();
-                expect(chunk.map?.sources.some(s => s?.includes('esmodule.js'))).toBe(true);
+                const position = originalPositionOf(chunk.code, chunk.map!, 'Promise.resolve(42)');
+                expect(position.source).toContain('esmodule.js');
+                expect(position.line).toBe(5);
             }
         }
     });

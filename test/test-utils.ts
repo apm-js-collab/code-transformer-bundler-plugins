@@ -2,6 +2,8 @@ import { join } from 'path';
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { parse } from 'meriyah';
+import MagicString from 'magic-string';
+import { TraceMap, originalPositionFor, type SourceMapInput } from '@jridgewell/trace-mapping';
 
 export interface TestFixture {
     testDir: string;
@@ -222,6 +224,38 @@ export function createTestFixture(): TestFixture {
             }
         }
     };
+}
+
+/**
+ * A transform plugin that shifts every line of `filename` down by three, so a
+ * sourcemap that isn't chained through it maps to the wrong line. `enforce`
+ * makes Vite run it before code-transformer; Rollup ignores it and goes by
+ * plugin order.
+ */
+export function linePrependingPlugin(filename: string) {
+    return {
+        name: 'line-prepending',
+        enforce: 'pre' as const,
+        transform(code: string, id: string) {
+            if (!id.includes(filename)) return null;
+            const ms = new MagicString(code);
+            ms.prepend('// one\n// two\n// three\n');
+            return { code: ms.toString(), map: ms.generateMap({ hires: true, source: id }) };
+        },
+    };
+}
+
+/** Where the first occurrence of `needle` in `code` maps back to through `map`. */
+export function originalPositionOf(code: string, map: SourceMapInput, needle: string) {
+    const index = code.indexOf(needle);
+    if (index === -1) {
+        throw new Error(`'${needle}' not found in output`);
+    }
+
+    const before = code.slice(0, index);
+    const line = before.split('\n').length;
+    const column = index - before.lastIndexOf('\n') - 1;
+    return originalPositionFor(new TraceMap(map), { line, column });
 }
 
 export const commonTestCases = {
