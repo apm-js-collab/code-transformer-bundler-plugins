@@ -209,7 +209,9 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
     id: string,
     inputSourceMap?: string | object | null,
   ): TransformResult | null => {
-    const moduleDetails = moduleDetailsFromPath(id);
+    // Vite's dev server adds a query to the ids of dependencies that it does not pre-bundle, for example `?v=<hash>`.
+    const filePath = stripQueryAndHashFromPath(id);
+    const moduleDetails = moduleDetailsFromPath(filePath);
     if (!moduleDetails) return null;
 
     const moduleVersion = getModuleVersion(moduleDetails.basedir);
@@ -224,7 +226,7 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
     );
     if (!transformer) return null;
 
-    const moduleType = detectModuleType(id, code);
+    const moduleType = detectModuleType(filePath, code);
 
     if (moduleType === 'unknown') {
       failedModules.add(moduleDetails.name);
@@ -236,7 +238,7 @@ export function createCodeTransformer(options: CodeTransformerPluginOptions) {
         code,
         moduleType,
         inputSourceMap ?? null,
-        { sourceFile: stripQueryAndHashFromPath(id) },
+        { sourceFile: filePath },
       );
       transformedModules.add(transformer.moduleName);
       return { code: result.code, map: result.map };

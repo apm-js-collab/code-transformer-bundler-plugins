@@ -148,6 +148,34 @@ describe('Vite integration tests', () => {
         }
     });
 
+    it('should transform a module whose id has a query', async () => {
+        const testCase = commonTestCases.mjsModule;
+        const testFile = join(fixture.moduleDir, testCase.filename);
+        writeFileSync(testFile, testCase.code);
+
+        const plugin = codeTransformerPlugin({
+            instrumentations: [testCase.instrumentation]
+        });
+
+        const result = await build({
+            root: fixture.testDir,
+            build: {
+                write: false,
+                rollupOptions: {
+                    // The id that Vite's dev server gives a dependency that it does not pre-bundle.
+                    input: `${testFile}?v=1a2b3c4d`,
+                    external: Array.from(builtinModules)
+                }
+            },
+            plugins: [plugin]
+        });
+
+        expect(result).toBeDefined();
+        if ('output' in result) {
+            expect(result.output[0].code).toContain('test:mjs');
+        }
+    });
+
     it('should not transform files outside node_modules', async () => {
         const outsideFile = join(fixture.testDir, 'outside.js');
         const testCode = `
