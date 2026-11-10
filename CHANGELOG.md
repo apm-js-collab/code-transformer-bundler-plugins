@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.6](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.7.5...code-transformer-bundler-plugins-v0.7.6) (2026-10-28)
+
+
+### Bug Fixes
+
+* Match modules whose id has a query ([#53](https://github.com/apm-js-collab/code-transformer-bundler-plugins/issues/53)) ([4dbf34b](https://github.com/apm-js-collab/code-transformer-bundler-plugins/commit/4dbf34bf4a437d8be3f11038fcc5fa44065ae964))
+
 ## [0.7.5](https://github.com/apm-js-collab/code-transformer-bundler-plugins/compare/code-transformer-bundler-plugins-v0.7.4...code-transformer-bundler-plugins-v0.7.5) (2026-10-23)
 
 
